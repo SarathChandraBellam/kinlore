@@ -27,6 +27,31 @@ files:
     filter:
       - package.json
       - dist/**/*
+  - from: ../../packages/interview
+    to: node_modules/@kinlore/interview
+    filter:
+      - package.json
+      - dist/**/*
+  - from: ../../packages/ask
+    to: node_modules/@kinlore/ask
+    filter:
+      - package.json
+      - dist/**/*
+  - from: ../../packages/ingest
+    to: node_modules/@kinlore/ingest
+    filter:
+      - package.json
+      - dist/**/*
+  - from: ../../packages/secrets
+    to: node_modules/@kinlore/secrets
+    filter:
+      - package.json
+      - dist/**/*
+  - from: ../../packages/engine
+    to: node_modules/@kinlore/engine
+    filter:
+      - package.json
+      - dist/**/*
 win:
   target:
     - nsis

@@ -13,8 +13,13 @@
     "dist": "electron-builder --publish never"
   },
   "dependencies": {
+    "@kinlore/ask": "*",
     "@kinlore/core": "*",
+    "@kinlore/engine": "*",
+    "@kinlore/ingest": "*",
+    "@kinlore/interview": "*",
     "@kinlore/ipc-contract": "*",
+    "@kinlore/secrets": "*",
     "@kinlore/storage": "*",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

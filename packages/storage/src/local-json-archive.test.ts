@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Consent, Keepsake, Person, Recording, Story } from '@kinlore/core';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ARCHIVE_FORMAT, ARCHIVE_VERSION, MANIFEST_NAME } from './layout.js';
+import { ARCHIVE_FORMAT, ARCHIVE_VERSION, MANIFEST_NAME, MAX_ARCHIVE_VERSION } from './layout.js';
 import { LocalJsonStorage } from './local-json-archive.js';
 
 const storage = new LocalJsonStorage();
@@ -174,7 +174,7 @@ describe('LocalJsonStorage', () => {
       path.join(root, MANIFEST_NAME),
       `${JSON.stringify({
         format: ARCHIVE_FORMAT,
-        version: ARCHIVE_VERSION + 1,
+        version: MAX_ARCHIVE_VERSION + 1,
         createdAt: timestamps().createdAt,
         updatedAt: timestamps().updatedAt,
       })}\n`,

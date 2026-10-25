@@ -26,7 +26,8 @@ Vitest, ESLint (flat, typescript-eslint), Prettier.
 ```
 renderer (React, isolated) --preload KinloreApi--> main (Node)
                                   |                      |
-                          @kinlore/ipc-contract    @kinlore/storage
+                          @kinlore/ipc-contract    storage, ask, interview,
+                                                   ingest, secrets, engine
                                                          |
                                                    @kinlore/core
 ```
@@ -36,12 +37,17 @@ talk through public `index` exports only.
 
 ## Package map
 
-| Path                    | Package                 | Responsibility                              |
-| ----------------------- | ----------------------- | ------------------------------------------- |
-| `apps/desktop`          | `@kinlore/desktop`      | Electron main, preload, React UI            |
-| `packages/core`         | `@kinlore/core`         | Person, Recording, Story, Keepsake, Consent |
-| `packages/storage`      | `@kinlore/storage`      | `StorageProvider`, local JSON archive       |
-| `packages/ipc-contract` | `@kinlore/ipc-contract` | IPC channel names and `KinloreApi`          |
+| Path                    | Package                 | Responsibility                                |
+| ----------------------- | ----------------------- | --------------------------------------------- |
+| `apps/desktop`          | `@kinlore/desktop`      | Electron main, preload, React UI              |
+| `packages/core`         | `@kinlore/core`         | Domain types, parsers, consent and seal rules |
+| `packages/storage`      | `@kinlore/storage`      | JSON archive and optional encryption          |
+| `packages/interview`    | `@kinlore/interview`    | Local question bank and follow-ups            |
+| `packages/ask`          | `@kinlore/ask`          | Answers that cite real transcript clips       |
+| `packages/ingest`       | `@kinlore/ingest`       | File, zip, and subtitle import                |
+| `packages/secrets`      | `@kinlore/secrets`      | Secret file outside the archive               |
+| `packages/engine`       | `@kinlore/engine`       | Speech and voice engine interfaces            |
+| `packages/ipc-contract` | `@kinlore/ipc-contract` | IPC channel names and `KinloreApi`            |
 
 ## Archive / data model
 
@@ -49,17 +55,24 @@ Archive root: a user-chosen folder, or `<app.getPath('userData')>/KinloreArchive
 
 ```
 <archive>/
-  kinlore.json                 # format: kinlore-archive, version: 1
+  kinlore.json                 # format: kinlore-archive, version: 1 (2 when encrypted)
   people/<id>.json
   recordings/<id>.json
   recordings/media/<file>
   stories/<id>.json
   keepsakes/<id>.json
+  keepsakes/media/<file>
   consent/<id>.json
+  transcripts/<id>.json
+  interviews/<id>.json
+  timeline/<id>.json
+  recipes/<id>.json
+  encryption.json              # wrapped keys only, when encryption is on
 ```
 
-Pretty-printed JSON + media files. Portable: copy the folder. `EncryptionProvider`
-is an unimplemented extension point (Windows DPAPI / macOS Keychain later).
+Pretty-printed JSON + media files. Portable: copy the folder. Encryption is
+opt-in (`AesGcmEncryption` via `ArchiveCodec`). `LocalJsonStorage` stays
+plaintext until that codec is set. API keys live outside the archive.
 
 Entity ids are `[A-Za-z0-9_-]+` (UUIDs are fine). Media paths must stay inside
 the archive root.

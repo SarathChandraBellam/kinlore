@@ -14,10 +14,32 @@ body {
   margin: 0;
 }
 
+.shell {
+  display: grid;
+  grid-template-columns: 16rem 1fr;
+  min-height: 100vh;
+}
+
+aside {
+  padding: 1.5rem 1rem 2rem;
+  background: #efe4d4;
+  border-right: 1px solid #e4d3bb;
+}
+
+aside h1 {
+  font-size: 1.8rem;
+}
+
 .page {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2.5rem 1.5rem 4rem;
+  max-width: 46rem;
+  margin: 0;
+  padding: 2rem 1.5rem 4rem;
+}
+
+@media (max-width: 800px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
 }
 
 .eyebrow {
@@ -79,6 +101,73 @@ button {
 
 button:hover {
   background: #4a3b2c;
+}
+
+button.nav {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  text-align: left;
+  background: transparent;
+  color: #2b2118;
+  border-radius: 0.5rem;
+}
+
+button.nav.current,
+button.nav.current:hover {
+  background: #2b2118;
+  color: #fffaf3;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+nav {
+  margin-top: 1rem;
+}
+
+.card {
+  border-top: 1px solid #e4d3bb;
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.stack {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+textarea,
+select {
+  font: inherit;
+  border: 1px solid #d8c4a8;
+  border-radius: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  background: #fff;
+}
+
+textarea {
+  min-height: 5rem;
+}
+
+blockquote {
+  margin: 0.4rem 0;
+}
+
+.recovery {
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+}
+
+img,
+audio,
+video {
+  max-width: 100%;
 }
 
 form {

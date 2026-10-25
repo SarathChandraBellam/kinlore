@@ -8,8 +8,10 @@ portable archive folder on your computer. There is no account, server, or
 subscription. Nothing leaves the machine unless you explicitly export it or
 bring your own API keys later.
 
-This repository is an early skeleton (Electron + TypeScript + Node). Recording,
-transcription, and the interviewer are not built yet.
+Record an interview, import a voice note or home video, and ask a question.
+Kinlore plays the moment someone actually answered, or it says the archive
+does not have it. It does not invent memories, and it does not ship a speech
+model: you type the words that were spoken, or you import a subtitle file.
 
 ## What it will do
 
@@ -33,12 +35,17 @@ Electron (main + preload + React/Vite renderer) and TypeScript on Node.js, as an
 npm-workspace monorepo. The renderer runs with `contextIsolation` on and
 `nodeIntegration` off.
 
-| Path                    | Role                                                      |
-| ----------------------- | --------------------------------------------------------- |
-| `apps/desktop`          | Electron shell and UI                                     |
-| `packages/core`         | Domain types: Person, Recording, Story, Keepsake, Consent |
-| `packages/storage`      | Local KinloreArchive (JSON metadata + media files)        |
-| `packages/ipc-contract` | Typed IPC between renderer and main                       |
+| Path                    | Role                                                |
+| ----------------------- | --------------------------------------------------- |
+| `apps/desktop`          | Electron shell and UI                               |
+| `packages/core`         | People, recordings, stories, consent, and the rules |
+| `packages/storage`      | Local KinloreArchive, plus optional encryption      |
+| `packages/interview`    | Question bank in English, Telugu, Hindi, and Tamil  |
+| `packages/ask`          | Real-clip answers, including the whole family       |
+| `packages/ingest`       | Audio, video, WhatsApp zip, and subtitle import     |
+| `packages/secrets`      | API keys in a secret file outside the archive       |
+| `packages/engine`       | Swappable speech and voice engines (none installed) |
+| `packages/ipc-contract` | Typed IPC between renderer and main                 |
 
 ## Develop
 
@@ -79,11 +86,20 @@ A Kinlore archive is a folder you choose, or `<appData>/KinloreArchive`:
   recordings/media/<file>
   stories/<id>.json
   keepsakes/<id>.json
+  keepsakes/media/<file>
   consent/<id>.json
+  transcripts/<id>.json
+  interviews/<id>.json
+  timeline/<id>.json
+  recipes/<id>.json
+  encryption.json
 ```
 
 Pretty-printed JSON plus media files. Copy the folder to back it up. Encryption
-via Windows DPAPI / macOS Keychain is a planned extension, not implemented.
+is optional: a passphrase and a recovery key wrap the data key. The plaintext
+archive stays readable until you turn encryption on. API keys, if you save
+them, live in a secret file outside the archive. This build does not call a
+network service with them.
 
 ## Roadmap
 

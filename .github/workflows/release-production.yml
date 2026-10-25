@@ -58,64 +58,22 @@ jobs:
               )
               sys.exit(1)
           print(f"version {version} matches package.json")
-          TAG = f"v{version}"
-          if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", TAG):
-              print(f"tag {TAG!r} is not vX.Y.Z")
-              sys.exit(1)
-          print(f"tag {TAG} is valid")
           PY
 
   ci:
     needs: validate
     uses: ./.github/workflows/ci.yml
 
-  package:
-    name: package-${{ matrix.os }}
+  installers:
+    name: installers
     needs: [validate, ci]
-    runs-on: ${{ matrix.os }}
-    environment: production
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            electron_args: --linux
-          - os: windows-latest
-            electron_args: --win
-          - os: macos-latest
-            electron_args: --mac
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      # Code signing is not enabled yet. When ready, add these as secrets on
-      # the GitHub `production` environment and uncomment:
-      # CSC_LINK: ${{ secrets.CSC_LINK }}
-      # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-      # APPLE_ID: ${{ secrets.APPLE_ID }}
-      # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      # WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run dist -- ${{ matrix.electron_args }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: installer-${{ matrix.os }}
-          path: |
-            apps/desktop/release/*.AppImage
-            apps/desktop/release/*.dmg
-            apps/desktop/release/*.exe
-            apps/desktop/release/*.zip
-          if-no-files-found: error
+    uses: ./.github/workflows/package-installers.yml
+    with:
+      environment_name: production
 
   publish:
     name: publish
-    needs: package
+    needs: installers
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 10
@@ -125,11 +83,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
-          merge-multiple: true
-      - name: Tag and create GitHub Release
+          name: release-assets
+          path: release-assets
+      - name: Release notes
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ github.event.inputs.version }}
         run: |
           set -euo pipefail
@@ -170,12 +127,14 @@ jobs:
                       f"Notes from CHANGELOG [Unreleased] for {tag}:\n\n"
                       + take_section(start + 1)
                   )
+          body += "\nInstallers: Linux AppImage, Windows NSIS, macOS DMG, and SHA256SUMS.\n"
           Path("release-notes.md").write_text(body, encoding="utf-8")
           PY
-          shopt -s nullglob
-          files=(artifacts/*)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "No production artifacts to publish"
-            exit 1
-          fi
-          gh release create "$TAG" "${files[@]}" --target "${GITHUB_SHA}" --title "$TAG" --notes-file release-notes.md
+      - name: Publish production release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/publish-release.sh
+          ./scripts/publish-release.sh --tag "v${VERSION}" --title "v${VERSION}" --notes release-notes.md --assets release-assets

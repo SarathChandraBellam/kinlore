@@ -1,0 +1,79 @@
+name: package-installers
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        description: GitHub environment that must approve the build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: package-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    environment: ${{ inputs.environment_name }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            electron_args: --linux
+            artifact_glob: apps/desktop/release/*.AppImage
+          - os: windows-latest
+            electron_args: --win
+            artifact_glob: apps/desktop/release/*.exe
+          - os: macos-latest
+            electron_args: --mac
+            artifact_glob: apps/desktop/release/*.dmg
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Linux packaging libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+      - run: npm ci
+      - run: npm run dist -- ${{ matrix.electron_args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
+
+  assemble:
+    name: assemble-assets
+    needs: package
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment_name }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: release-assets
+          merge-multiple: true
+      - name: Checksums and required installers
+        run: |
+          set -euo pipefail
+          cd release-assets
+          find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+          cd ..
+          node scripts/release-assets.mjs release-assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets/*
+          if-no-files-found: error
