@@ -1,0 +1,84 @@
+name: release-staging
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: package-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    environment: staging
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            electron_args: --linux
+          - os: windows-latest
+            electron_args: --win
+          - os: macos-latest
+            electron_args: --mac
+    env:
+      # Unsigned staging builds. Do not set CSC_* or APPLE_* here yet.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run dist -- ${{ matrix.electron_args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.zip
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: package
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish staging prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          TAG="staging-${SHORT_SHA}"
+          NOTES="Unsigned staging build from \`${GITHUB_SHA}\` on main."
+          shopt -s nullglob
+          files=(artifacts/*)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No staging artifacts to publish"
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+            gh release edit "$TAG" --prerelease --title "Staging ${SHORT_SHA}" --notes "$NOTES"
+          else
+            gh release create "$TAG" "${files[@]}" --prerelease --title "Staging ${SHORT_SHA}" --notes "$NOTES"
+          fi

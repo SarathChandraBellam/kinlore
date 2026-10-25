@@ -9,6 +9,7 @@
 node_modules/
 dist/
 out/
+release/
 coverage/
 *.tsbuildinfo
 .vite/

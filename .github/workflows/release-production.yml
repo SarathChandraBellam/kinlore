@@ -1,0 +1,139 @@
+name: release-production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing git tag to release (vX.Y.Z). Required when dispatching from a branch.
+        required: false
+        type: string
+
+concurrency:
+  group: release-production-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: package-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    environment: production
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            electron_args: --linux
+          - os: windows-latest
+            electron_args: --win
+          - os: macos-latest
+            electron_args: --mac
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # Code signing is not enabled yet. When ready, add these as secrets on
+      # the GitHub `production` environment and uncomment:
+      # CSC_LINK: ${{ secrets.CSC_LINK }}
+      # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      # APPLE_ID: ${{ secrets.APPLE_ID }}
+      # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run dist -- ${{ matrix.electron_args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.zip
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: package
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Ref '$TAG' is not a vX.Y.Z tag. Pass the tag input when using workflow_dispatch."
+            exit 1
+          fi
+          python3 - "$TAG" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          tag = sys.argv[1]
+          version = tag[1:] if tag.startswith("v") else tag
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          lines = text.splitlines()
+          heading = re.compile(r"^##\s+\[?" + re.escape(version) + r"\]?")
+          unreleased = re.compile(r"^##\s+\[Unreleased\]", re.I)
+
+          def take_section(start: int) -> str:
+              collected: list[str] = []
+              for line in lines[start:]:
+                  if line.startswith("## "):
+                      break
+                  collected.append(line)
+              return "\n".join(collected).strip() + "\n"
+
+          start = next((i for i, line in enumerate(lines) if heading.match(line)), None)
+          if start is not None:
+              body = take_section(start + 1)
+          else:
+              start = next((i for i, line in enumerate(lines) if unreleased.match(line)), None)
+              if start is None:
+                  body = text
+              else:
+                  body = (
+                      f"Notes from CHANGELOG [Unreleased] for {tag}:\n\n"
+                      + take_section(start + 1)
+                  )
+          Path("release-notes.md").write_text(body, encoding="utf-8")
+          PY
+          shopt -s nullglob
+          files=(artifacts/*)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No production artifacts to publish"
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+            gh release edit "$TAG" --draft=false --prerelease=false --title "$TAG" --notes-file release-notes.md
+          else
+            gh release create "$TAG" "${files[@]}" --title "$TAG" --notes-file release-notes.md
+          fi

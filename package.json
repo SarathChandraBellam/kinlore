@@ -19,7 +19,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc -b && tsc --noEmit -p apps/desktop/tsconfig.renderer.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dist": "npm run build && npm run dist -w @kinlore/desktop --"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

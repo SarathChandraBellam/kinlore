@@ -76,6 +76,7 @@ the archive root.
 | Type check   | `npm run typecheck`    |
 | Test (all)   | `npm test`             |
 | Build        | `npm run build`        |
+| Package      | `npm run dist`         |
 
 ## Quality gates
 
@@ -114,6 +115,17 @@ These run **in the repo, before merge**. `role-verifying-changes` runs all of th
 1. Record and listen — interviews, family questions, real-clip answers, keepsakes, English and Telugu.
 2. Understand — WhatsApp/video import, adaptive interviewer, ask the whole family, timeline, recipes, BYO keys.
 3. Extend — sealed recordings, opt-in style voice, encryption with a recovery key, more languages.
+
+## Review and release
+
+Feature branch → PR to `main` → the `ci` status check must pass → maintainer
+approval → merge. A merge to `main` runs `ci` again and publishes an unsigned
+GitHub prerelease tagged `staging-<short sha>`. Production: push a `vX.Y.Z`
+tag (or run **release-production** via `workflow_dispatch`) to create a full
+GitHub Release with installers and notes from `CHANGELOG.md`.
+
+Details: [CONTRIBUTING.md](CONTRIBUTING.md). Workflows live in
+`.github/workflows/`.
 
 ## How we work
 

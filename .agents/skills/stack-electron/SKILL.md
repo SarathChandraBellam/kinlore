@@ -21,6 +21,8 @@ metadata:
 - `npm run dev` (root) launches the GUI.
 - `npm run build` compiles packages + main/preload and Vite-bundles the renderer.
   It does not open a window.
+- `npm run dist` runs `build` then electron-builder (`apps/desktop/electron-builder.yml`).
+  Builds are unsigned until production signing secrets are set.
 
 ## Style and typing
 
@@ -42,4 +44,5 @@ metadata:
 
 - `nodeIntegration: true`, disabling `contextIsolation`, or exposing `ipcRenderer` wholesale.
 - Importing `@kinlore/storage` from renderer code.
-- Adding electron-builder or auto-update until packaging is in scope.
+- Auto-update. Packaging is unsigned electron-builder; do not add signing or
+  auto-update unless that work is in scope.

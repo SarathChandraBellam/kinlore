@@ -1,0 +1,41 @@
+# Unsigned packaging. Code signing is wired in
+# .github/workflows/release-production.yml when secrets are set.
+appId: org.kinlore.app
+productName: Kinlore
+executableName: Kinlore
+# Must be a fixed version so electron-builder can fetch platform binaries.
+# Keep in sync with the resolved `electron` dependency.
+electronVersion: '37.10.3'
+directories:
+  output: release
+files:
+  - dist/**/*
+  - out/**/*
+  - package.json
+  - from: ../../packages/core
+    to: node_modules/@kinlore/core
+    filter:
+      - package.json
+      - dist/**/*
+  - from: ../../packages/storage
+    to: node_modules/@kinlore/storage
+    filter:
+      - package.json
+      - dist/**/*
+  - from: ../../packages/ipc-contract
+    to: node_modules/@kinlore/ipc-contract
+    filter:
+      - package.json
+      - dist/**/*
+win:
+  target:
+    - nsis
+mac:
+  target:
+    - dmg
+  identity: null
+linux:
+  target:
+    - AppImage
+npmRebuild: false
+publish: null
