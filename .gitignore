@@ -21,3 +21,4 @@ KinloreArchive/
 .DS_Store
 .idea/
 .conductor/cursor.log
+.conductor/
