@@ -1,0 +1,181 @@
+name: release-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semver to release (X.Y.Z). Must match package.json on main.
+        required: true
+        type: string
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate branch and version
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "release-production must run from main (got ${GITHUB_REF})"
+            exit 1
+          fi
+          python3 - "$VERSION" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          version = sys.argv[1]
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+              print(f"version {version!r} is not X.Y.Z semver")
+              sys.exit(1)
+
+          def pkg_version(path: str) -> str:
+              data = json.loads(Path(path).read_text(encoding="utf-8"))
+              value = data.get("version")
+              if not isinstance(value, str):
+                  raise SystemExit(f"{path} version is missing or not a string")
+              return value
+
+          root = pkg_version("package.json")
+          desktop = pkg_version("apps/desktop/package.json")
+          if version != root or version != desktop:
+              print(
+                  f"version {version!r} does not match package.json "
+                  f"(root={root!r}, apps/desktop={desktop!r})"
+              )
+              sys.exit(1)
+          print(f"version {version} matches package.json")
+          TAG = f"v{version}"
+          if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", TAG):
+              print(f"tag {TAG!r} is not vX.Y.Z")
+              sys.exit(1)
+          print(f"tag {TAG} is valid")
+          PY
+
+  ci:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    name: package-${{ matrix.os }}
+    needs: [validate, ci]
+    runs-on: ${{ matrix.os }}
+    environment: production
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            electron_args: --linux
+          - os: windows-latest
+            electron_args: --win
+          - os: macos-latest
+            electron_args: --mac
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # Code signing is not enabled yet. When ready, add these as secrets on
+      # the GitHub `production` environment and uncomment:
+      # CSC_LINK: ${{ secrets.CSC_LINK }}
+      # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      # APPLE_ID: ${{ secrets.APPLE_ID }}
+      # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run dist -- ${{ matrix.electron_args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.zip
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: package
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Tag and create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Refusing to publish invalid tag ${TAG}"
+            exit 1
+          fi
+          python3 - "$TAG" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          tag = sys.argv[1]
+          version = tag[1:] if tag.startswith("v") else tag
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          lines = text.splitlines()
+          heading = re.compile(r"^##\s+\[?" + re.escape(version) + r"\]?")
+          unreleased = re.compile(r"^##\s+\[Unreleased\]", re.I)
+
+          def take_section(start: int) -> str:
+              collected: list[str] = []
+              for line in lines[start:]:
+                  if line.startswith("## "):
+                      break
+                  collected.append(line)
+              return "\n".join(collected).strip() + "\n"
+
+          start = next((i for i, line in enumerate(lines) if heading.match(line)), None)
+          if start is not None:
+              body = take_section(start + 1)
+          else:
+              start = next((i for i, line in enumerate(lines) if unreleased.match(line)), None)
+              if start is None:
+                  body = text
+              else:
+                  body = (
+                      f"Notes from CHANGELOG [Unreleased] for {tag}:\n\n"
+                      + take_section(start + 1)
+                  )
+          Path("release-notes.md").write_text(body, encoding="utf-8")
+          PY
+          shopt -s nullglob
+          files=(artifacts/*)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No production artifacts to publish"
+            exit 1
+          fi
+          gh release create "$TAG" "${files[@]}" --target "${GITHUB_SHA}" --title "$TAG" --notes-file release-notes.md

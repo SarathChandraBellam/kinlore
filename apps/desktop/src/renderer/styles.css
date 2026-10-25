@@ -1,0 +1,109 @@
+:root {
+  color-scheme: light;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  line-height: 1.5;
+  color: #2b2118;
+  background: #f6efe4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  margin: 0;
+  color: #7a5c3c;
+}
+
+h1,
+h2 {
+  font-weight: 600;
+}
+
+h1 {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 2.4rem;
+}
+
+.lede,
+.status,
+.muted,
+.error {
+  margin: 0 0 1rem;
+}
+
+.lede {
+  color: #4a3b2c;
+}
+
+.panel {
+  background: #fffaf3;
+  border: 1px solid #e4d3bb;
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.25rem 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  background: #2b2118;
+  color: #fffaf3;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #4a3b2c;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+input {
+  border: 1px solid #d8c4a8;
+  border-radius: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  background: #fff;
+}
+
+.error {
+  color: #8b1e1e;
+}
+
+.muted {
+  color: #6b5846;
+}
+
+ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}

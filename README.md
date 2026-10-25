@@ -1,74 +1,97 @@
-# agentic-dev-starter
+# Kinlore
 
-A minimal GitHub template that makes a new repo ready for AI-assisted development, focused on the **developer** and
-**QA** personas, with quality built and proven **inside the repo** before merge.
+Your family's stories, in their own voices.
 
-It's built only on the open standards the tools are converging on:
+Kinlore is an open-source desktop app that helps families keep stories told by
+elders. It is local-first: recordings, transcripts, and keepsakes live in a
+portable archive folder on your computer. There is no account, server, or
+subscription. Nothing leaves the machine unless you explicitly export it or
+bring your own API keys later.
 
-- **[AGENTS.md](https://agents.md)**: the single index for project rules, quality gates, agents and skills.
-- **[Agent Skills](https://agentskills.io/specification)**: reusable know-how in `.agents/skills/<name>/SKILL.md`.
-- **Subagents**: thin persona files in `.agents/agents/` that the main agent dispatches as an orchestrator.
+This repository is an early skeleton (Electron + TypeScript + Node). Recording,
+transcription, and the interviewer are not built yet.
 
-There are no CLI-specific folders, generators or sync scripts.
+## What it will do
+
+- A curious interviewer with follow-ups, in the family's languages
+- Import WhatsApp voice notes, home videos, and old recordings
+- Transcribe, diarize speakers, and turn sessions into stories
+- Answer family questions with the real clip — never invented memories
+- Keepsakes, a family cookbook told aloud, a timeline, sealed recordings
+- Telugu, Hindi, Tamil, and English, including code-mixing
+
+## Beliefs
+
+- Real recordings first. Generated voice is optional, off by default, consented, and labeled.
+- Consent is built in.
+- Open source and an open, portable archive format. Models are swappable.
+- Optional user API keys stay in the OS keychain; the app will show exactly what would leave the computer.
+
+## Stack
+
+Electron (main + preload + React/Vite renderer) and TypeScript on Node.js, as an
+npm-workspace monorepo. The renderer runs with `contextIsolation` on and
+`nodeIntegration` off.
+
+| Path                    | Role                                                      |
+| ----------------------- | --------------------------------------------------------- |
+| `apps/desktop`          | Electron shell and UI                                     |
+| `packages/core`         | Domain types: Person, Recording, Story, Keepsake, Consent |
+| `packages/storage`      | Local KinloreArchive (JSON metadata + media files)        |
+| `packages/ipc-contract` | Typed IPC between renderer and main                       |
+
+## Develop
+
+Requires Node.js 20+ (see `.nvmrc`).
+
+```bash
+npm install
+npm run dev
+```
+
+`npm run dev` starts the Vite renderer and opens the Electron window. The GUI
+is optional for contributing to packages; the checks below do not launch it.
+
+## Checks
+
+```bash
+npm run lint
+npm run format:check
+npm run typecheck
+npm test
+npm run build
+```
+
+Format locally with `npm run format`.
+
+Agent instructions live in [AGENTS.md](AGENTS.md). Claude Code also reads
+[CLAUDE.md](CLAUDE.md), which points at that file.
+
+## Archive layout
+
+A Kinlore archive is a folder you choose, or `<appData>/KinloreArchive`:
 
 ```
-AGENTS.md            # index: project, commands, quality gates, agents + tiers, skills
-.agents/
-  agents/            # role-explorer · role-planner · role-qa-engineer · role-developer · role-code-reviewer ·
-                     # role-security-reviewer · role-debugger · repo-domain-expert  (stack-* agents added per stack)
-  skills/            # role-* (11) · repo-* (4: intent, knowledge, review rules, writing skills) · stack-* (created when the stack is chosen)
-specs/               # per-change artifacts: spec.md · plan.md · test-cases.md · qa-report.md
+<archive>/
+  kinlore.json
+  people/<id>.json
+  recordings/<id>.json
+  recordings/media/<file>
+  stories/<id>.json
+  keepsakes/<id>.json
+  consent/<id>.json
 ```
 
-## The lifecycle
+Pretty-printed JSON plus media files. Copy the folder to back it up. Encryption
+via Windows DPAPI / macOS Keychain is a planned extension, not implemented.
 
-The lifecycle is adapted from AWS's AI-Driven Development Lifecycle, Spec Kit and Kiro: the AI proposes, the human approves at gates,
-and the artifacts live in the repo.
+## Roadmap
 
-| Phase | Agents | Output | Gate |
-| --- | --- | --- | --- |
-| **Inception** | explorer → planner → qa-engineer (design) | spec with Given/When/Then criteria, plan, **test cases before code** | Gate 1: human approves |
-| **Construction** | developer (test-first) → code-reviewer (+ security) → qa-engineer (verify) | code, tests, findings, **QA report** | Gate 2: human reviews and merges |
+1. **Record and listen** — interviews, family questions, real-clip answers, keepsakes, English and Telugu.
+2. **Understand** — WhatsApp/video import, adaptive interviewer, ask the whole family, timeline, recipes, bring-your-own keys.
+3. **Extend** — sealed recordings, opt-in style voice, encryption with a recovery key, more languages.
 
-Two design rules come from what has worked in practice:
-- **One writer at a time.** Read-only agents (explorer, reviewers) may run in parallel.
-- **Review in a clean context**, by an agent that didn't write the code.
+## License
 
-## Personas and model tiers
-
-Agents declare a tier (`strong`, `balanced` or `fast`), not a model name, so the same files work under any orchestrator.
-`AGENTS.md` maps the tiers:
-- **strong** for planning, review and security,
-- **balanced** for the developer and QA,
-- **fast** for read-only exploration,
-- **inherit** when unsure.
-
-## Quick start
-
-1. Click **Use this template**, then clone.
-2. Fill in **Project**, **Stack**, **Commands** and **Quality gates** in `AGENTS.md`, then the three repo skills
-   (`repo-project-intent`, `repo-domain-knowledge`, `repo-review-rules`), or ask an agent to draft them for you to approve.
-3. Ask: *"Our stack is Python + FastAPI + pytest. Create the stack skills."* (`repo-writing-skills` creates `stack-python`, and `stack-fastapi` if needed.)
-4. Ask: *"Use role-running-dev-cycle to add rate limiting to the login endpoint."*
-
-## Compatibility
-
-| Agent | Reads `AGENTS.md` | Discovers `.agents/skills` | Subagents |
-| --- | --- | --- | --- |
-| Codex CLI | ✅ | ✅ | ✅ generic subagents |
-| GitHub Copilot CLI | ✅ | ✅ | ✅ |
-| Cursor | ✅ | ✅ | ✅ |
-| Gemini CLI | ⚠️ set `context.fileName: ["AGENTS.md"]` once | ✅ | ✅ |
-| Claude Code | ✅ (no `CLAUDE.md` present) | ⚠️ via the index in `AGENTS.md` ([#31005](https://github.com/anthropics/claude-code/issues/31005)) | ✅ |
-
-`.agents/agents/` is a convention, not yet a standard. The orchestrator reads the file and passes it to a generic subagent, which
-works in every CLI above. To also register agents natively, copy or symlink them into your CLI's agents folder locally.
-
-## Credits
-
-- [AWS AI-DLC](https://aws.amazon.com/blogs/devops/ai-driven-development-life-cycle) and [awslabs/aidlc-workflows](https://github.com/awslabs/aidlc-workflows): inception and construction phases, approval gates, artifacts in the repo.
-- [GitHub Spec Kit](https://github.com/github/spec-kit) and [Kiro specs](https://kiro.dev/docs/specs/index): spec → plan → tasks.
-- [obra/superpowers](https://github.com/obra/superpowers) (MIT): writing plans, TDD, systematic debugging, verification before completion.
-- [Anthropic: Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills) and [multi-agent research](https://www.anthropic.com/engineering/multi-agent-research-system): progressive disclosure, delegation briefs, effort scaling.
-- [Cognition: multi-agents that work](https://cognition.com/blog/multi-agents-working): clean-context review, read-only subagents, a single writer.
-- [OpenAI Codex best practices](https://developers.openai.com/codex/learn/best-practices): a short AGENTS.md, skills with one job each, subagents for bounded work.
+Apache-2.0. See [LICENSE](LICENSE). Please read [CONTRIBUTING.md](CONTRIBUTING.md)
+and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

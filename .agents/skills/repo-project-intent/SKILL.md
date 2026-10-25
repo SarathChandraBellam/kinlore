@@ -5,40 +5,63 @@ metadata:
   type: repo
   kind: intent
 ---
+
 # Project intent
 
 The "why" behind every decision. The planner reads this before writing a spec, and the reviewer checks changes against it.
 **Keep it short and current.** Agents propose edits; a human approves them.
 
 ## Purpose
-<!-- One paragraph: the problem this project solves and for whom. -->
-_TBD_
+
+Kinlore helps families keep stories told by elders, in their own voices. It is a
+local-first desktop app: recordings and metadata stay in a portable archive on
+the family's computer. No account, server, or subscription.
 
 ## Users and their jobs
-| User | What they need to get done |
-| --- | --- |
-| _TBD_ | _TBD_ |
+
+| User          | What they need to get done                                                        |
+| ------------- | --------------------------------------------------------------------------------- |
+| Family member | Record an elder, replay a real clip that answers a question, keep keepsakes       |
+| Elder         | Speak in their language (Telugu, Hindi, Tamil, English, code-mixing) with consent |
+| Contributor   | Add features without breaking local-first rules or the archive format             |
 
 ## Goals (this quarter / release)
-- _TBD_
+
+- A working Electron + TypeScript skeleton: types, local archive, sandboxed UI
+- Documented open archive layout that can be copied and inspected
+- Quality gates (lint, format, typecheck, test, build) that pass in CI
 
 ## Non-goals
-- _TBD (things we deliberately won't do, so agents don't add them)_
+
+- Cloud accounts, Kinlore-hosted models, subscriptions, or analytics
+- Implementing ASR, diarization, or the interviewer in this skeleton
+- Implementing encryption (interface only until roadmap phase 3)
+- Generated voice (optional, off by default, later, always labeled)
 
 ## Principles (rank-ordered: when they conflict, the higher one wins)
-1. _e.g. Correctness over speed of delivery_
-2. _e.g. Simple, boring tech over novel tech_
-3. _e.g. Backwards compatibility for the public API_
+
+1. Local-first: nothing leaves the machine without an explicit user action
+2. Real recordings over generated media; never invent memories
+3. Consent is a first-class entity, not a footer
+4. Open, portable archive over a proprietary database
+5. Simplest thing that works; no unused dependencies
 
 ## Constraints
-- _e.g. Must run on-prem; no external SaaS calls; data stays in region X; p95 < 300 ms_
+
+- Desktop only (Electron). Renderer is isolated (`contextIsolation`, no `nodeIntegration`).
+- Node.js 20+. Apache-2.0.
+- Family media must not be committed or uploaded by tooling.
 
 ## Decisions log
-| Date | Decision | Why | Alternatives rejected |
-| --- | --- | --- | --- |
-| _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+
+| Date       | Decision                     | Why                                                                | Alternatives rejected     |
+| ---------- | ---------------------------- | ------------------------------------------------------------------ | ------------------------- |
+| 2026-10-25 | Electron + TypeScript + Node | Matches the current product brief; one language across main and UI | Tauri/Python (old README) |
+| 2026-10-25 | JSON files + media folder    | Open and portable; no native SQLite binding yet                    | SQLite now                |
+| 2026-10-25 | npm workspaces               | Template had no pnpm lockfile; brief allows npm                    | pnpm, yarn                |
 
 ## How agents use this
+
 - **Planner:** flag any request that conflicts with a non-goal, principle or constraint before planning it.
 - **Reviewer:** a change that violates a principle or constraint is a **major** finding.
 - **Anyone:** when a new decision is made in a conversation, propose a row for the decisions log.

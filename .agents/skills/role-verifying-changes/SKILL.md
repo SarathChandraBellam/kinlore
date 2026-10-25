@@ -6,13 +6,14 @@ metadata:
   role: role-qa-engineer
   phase: construction
 ---
+
 # Verifying changes
 
 "It should work" isn't evidence. Run things.
 
 ## Steps
 
-1. **Run every gate** listed under *Quality gates* in `AGENTS.md`, in order, and capture the exit code and the last lines of output.
+1. **Run every gate** listed under _Quality gates_ in `AGENTS.md`, in order, and capture the exit code and the last lines of output.
    If a gate isn't defined yet, report it as **missing** rather than skipping it silently.
 2. **Trace the criteria.** For each criterion, name the test case and the test that proves it, and confirm the test ran and passed.
 3. **Check for regressions.** Make sure the full suite passed, not just the new tests, and that no test was skipped or deleted to get green.
@@ -24,16 +25,17 @@ metadata:
 
 ```markdown
 # QA report <id>
+
 Verdict: PASS | FAIL
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| lint | <cmd> | pass |
-| tests | <cmd> | pass (212 passed, 0 skipped) |
+| Gate  | Command | Result                       |
+| ----- | ------- | ---------------------------- |
+| lint  | <cmd>   | pass                         |
+| tests | <cmd>   | pass (212 passed, 0 skipped) |
 
-| Criterion | Test case | Test | Result |
-| --- | --- | --- | --- |
-| AC1 | TC1 | tests/api/test_users.py::test_get_user | pass |
+| Criterion | Test case | Test                                   | Result |
+| --------- | --------- | -------------------------------------- | ------ |
+| AC1       | TC1       | tests/api/test_users.py::test_get_user | pass   |
 
 Defects found: none | <id, repro, severity>
 Not verified: <anything you couldn't check, and why>

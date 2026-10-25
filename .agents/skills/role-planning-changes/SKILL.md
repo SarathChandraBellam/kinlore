@@ -6,6 +6,7 @@ metadata:
   role: role-planner
   phase: inception
 ---
+
 # Planning changes
 
 The plan says **how**. Save it as `specs/<id>-<slug>/plan.md`. **Don't edit source code.**
@@ -30,17 +31,21 @@ The plan says **how**. Save it as `specs/<id>-<slug>/plan.md`. **Don't edit sour
 # Plan <id>: <title>
 
 ## Design notes
+
 ...
 
 ## Tasks
+
 - [ ] T1: <what> (files: ...; serves: AC1)
 - [ ] T2: ...
 
 ## Test strategy
+
 | Criterion | Level | Notes |
-| --- | --- | --- |
-| AC1 | unit | ... |
+| --------- | ----- | ----- |
+| AC1       | unit  | ...   |
 
 ## Risks and rollback
+
 - ...
 ```

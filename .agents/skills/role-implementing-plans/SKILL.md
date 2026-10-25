@@ -6,6 +6,7 @@ metadata:
   role: role-developer
   phase: implement
 ---
+
 # Implementing plans (developer)
 
 You execute the plan. You don't redesign it.

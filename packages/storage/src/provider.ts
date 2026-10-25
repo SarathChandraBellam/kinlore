@@ -1,0 +1,31 @@
+import type { Consent, Keepsake, Person, Recording, Story } from '@kinlore/core';
+
+export interface ArchiveManifest {
+  format: 'kinlore-archive';
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Archive {
+  readonly rootPath: string;
+  getManifest(): Promise<ArchiveManifest>;
+  listPeople(): Promise<Person[]>;
+  getPerson(id: string): Promise<Person | undefined>;
+  savePerson(person: Person): Promise<Person>;
+  listRecordings(): Promise<Recording[]>;
+  saveRecording(recording: Recording): Promise<Recording>;
+  listStories(): Promise<Story[]>;
+  saveStory(story: Story): Promise<Story>;
+  listKeepsakes(): Promise<Keepsake[]>;
+  saveKeepsake(keepsake: Keepsake): Promise<Keepsake>;
+  listConsents(): Promise<Consent[]>;
+  saveConsent(consent: Consent): Promise<Consent>;
+  writeMedia(relativePath: string, data: Uint8Array): Promise<void>;
+  readMedia(relativePath: string): Promise<Uint8Array>;
+}
+
+export interface StorageProvider {
+  create(rootPath: string): Promise<Archive>;
+  open(rootPath: string): Promise<Archive>;
+}

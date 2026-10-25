@@ -4,6 +4,7 @@ description: Creates or updates a skill in .agents/skills following the open Age
 metadata:
   type: repo
 ---
+
 # Writing skills
 
 Skills live in `.agents/skills/<name>/SKILL.md` and follow the open [Agent Skills spec](https://agentskills.io/specification).
@@ -13,15 +14,16 @@ After adding or renaming a skill, **add it to the Skills index in `AGENTS.md`** 
 
 Every skill name starts with its type, so the kind is obvious in any skill list and they sort together.
 
-| Prefix | Type | Encodes | Example names | Template |
-| --- | --- | --- | --- | --- |
-| `role-` | **Role** | *How* a persona does its job, with a defined output | `role-reviewing-code`, `role-designing-test-cases` | [assets/role-skill.md](assets/role-skill.md) |
-| `repo-` | **Repo** (= this project) | Everything specific to this project: **intent** (goals, principles, decisions), **knowledge** (domain, glossary, architecture), **review rules**, and **procedures** | `repo-project-intent`, `repo-domain-knowledge`, `repo-review-rules`, `repo-adding-endpoints` | [assets/repo-skill.md](assets/repo-skill.md) |
-| `stack-` | **Stack** (language, framework, tool) | Conventions for a technology *as used in this repo* | `stack-python`, `stack-fastapi`, `stack-react`, `stack-postgres` | [assets/stack-skill.md](assets/stack-skill.md) |
+| Prefix   | Type                                  | Encodes                                                                                                                                                              | Example names                                                                                | Template                                       |
+| -------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `role-`  | **Role**                              | _How_ a persona does its job, with a defined output                                                                                                                  | `role-reviewing-code`, `role-designing-test-cases`                                           | [assets/role-skill.md](assets/role-skill.md)   |
+| `repo-`  | **Repo** (= this project)             | Everything specific to this project: **intent** (goals, principles, decisions), **knowledge** (domain, glossary, architecture), **review rules**, and **procedures** | `repo-project-intent`, `repo-domain-knowledge`, `repo-review-rules`, `repo-adding-endpoints` | [assets/repo-skill.md](assets/repo-skill.md)   |
+| `stack-` | **Stack** (language, framework, tool) | Conventions for a technology _as used in this repo_                                                                                                                  | `stack-python`, `stack-fastapi`, `stack-react`, `stack-postgres`                             | [assets/stack-skill.md](assets/stack-skill.md) |
 
 Naming rules:
-- Role skills and repo *procedures* use `<prefix>-<verb-ing>-<noun>` (`role-writing-tests`, `repo-cutting-releases`).
-  Repo *knowledge*, *intent* and *rules* use a noun (`repo-domain-knowledge`, `repo-review-rules`). Stack skills use `stack-<technology>`.
+
+- Role skills and repo _procedures_ use `<prefix>-<verb-ing>-<noun>` (`role-writing-tests`, `repo-cutting-releases`).
+  Repo _knowledge_, _intent_ and _rules_ use a noun (`repo-domain-knowledge`, `repo-review-rules`). Stack skills use `stack-<technology>`.
 - Keep names to 64 characters or fewer, lowercase, and hyphenated. The folder name must equal `name` exactly.
 - Set `metadata.type` to match the prefix (`role`, `repo` or `stack`).
 
@@ -30,24 +32,25 @@ Naming rules:
 Need a **persona that runs in its own context** (a subagent the orchestrator dispatches)? Create `.agents/agents/<name>.md` from
 [assets/agent.md](assets/agent.md) and name it with the same prefixes:
 
-| Prefix | Agent is | Examples |
-| --- | --- | --- |
-| `role-` | a generic persona usable in any project | `role-developer`, `role-qa-engineer`, `role-code-reviewer` |
-| `repo-` | an expert in **this project** (its intent, domain and rules) | `repo-domain-expert`, `repo-billing-expert` |
-| `stack-` | an expert in a language, framework or tool | `stack-python-reviewer`, `stack-react-tester` |
+| Prefix   | Agent is                                                     | Examples                                                   |
+| -------- | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| `role-`  | a generic persona usable in any project                      | `role-developer`, `role-qa-engineer`, `role-code-reviewer` |
+| `repo-`  | an expert in **this project** (its intent, domain and rules) | `repo-domain-expert`, `repo-billing-expert`                |
+| `stack-` | an expert in a language, framework or tool                   | `stack-python-reviewer`, `stack-react-tester`              |
 
 Keep agents thin: a responsibility, a boundary, an output shape, and the skills they load. Put the know-how in skills so humans and
 other agents can reuse it. Add the agent to the Agents table in `AGENTS.md`. Create a `stack-` agent only when a generic `role-`
 agent plus a `stack-` skill isn't enough.
 
 Where else knowledge can go:
+
 - A one-line rule that applies to every task belongs in `AGENTS.md`, not in a skill.
 - A rule for one directory belongs in a nested `AGENTS.md` in that directory.
 
 ## When to create each type
 
 - **Stack skill:** create it as soon as the stack is chosen (for example "we'll use Python + FastAPI"). Read the repo's actual
-  tooling first (`pyproject.toml`, `package.json`, linter configs). Then write the conventions that are *true for this repo*:
+  tooling first (`pyproject.toml`, `package.json`, linter configs). Then write the conventions that are _true for this repo_:
   layout, commands, typing, error handling, test idioms. Make one skill per language, and give a framework its own skill (`stack-fastapi`)
   only if it has many rules of its own.
 - **Repo skill:** keep the three shipped ones current: `repo-project-intent` (why), `repo-domain-knowledge` (what) and
