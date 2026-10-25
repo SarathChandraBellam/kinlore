@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer } from 'vite';
+import { build as viteBuild, createServer } from 'vite';
 
 const require = createRequire(import.meta.url);
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,6 +23,10 @@ function run(command, args, cwd) {
 
 const tsc = require.resolve('typescript/bin/tsc');
 await run(process.execPath, [tsc, '-b', path.join(repoRoot, 'tsconfig.json')], repoRoot);
+await viteBuild({
+  configFile: path.join(desktopRoot, 'vite.preload.config.ts'),
+  root: desktopRoot,
+});
 
 const server = await createServer({
   configFile: path.join(desktopRoot, 'vite.config.ts'),

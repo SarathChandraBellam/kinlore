@@ -58,11 +58,20 @@ jobs:
               )
               sys.exit(1)
           print(f"version {version} matches package.json")
+          TAG = f"v{version}"
+          if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", TAG):
+              print(f"tag {TAG!r} is not vX.Y.Z")
+              sys.exit(1)
+          print(f"tag {TAG} is valid")
           PY
+
+  ci:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
 
   package:
     name: package-${{ matrix.os }}
-    needs: validate
+    needs: [validate, ci]
     runs-on: ${{ matrix.os }}
     environment: production
     timeout-minutes: 45
@@ -125,6 +134,10 @@ jobs:
         run: |
           set -euo pipefail
           TAG="v${VERSION}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Refusing to publish invalid tag ${TAG}"
+            exit 1
+          fi
           python3 - "$TAG" <<'PY'
           import re
           import sys

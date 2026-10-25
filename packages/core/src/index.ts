@@ -12,6 +12,8 @@ export interface Person {
   updatedAt: IsoDateTime;
 }
 
+export { parsePerson } from './person.js';
+
 export interface Recording {
   id: EntityId;
   title: string;

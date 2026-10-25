@@ -5,7 +5,8 @@
     "rootDir": "src",
     "outDir": "dist",
     "tsBuildInfoFile": "dist/tsconfig.preload.tsbuildinfo",
-    "types": ["node"]
+    "types": ["node"],
+    "emitDeclarationOnly": true
   },
   "include": ["src/preload.ts"],
   "references": [{ "path": "../../packages/ipc-contract" }]

@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Consent, Keepsake, Person, Recording, Story } from '@kinlore/core';
@@ -166,5 +166,28 @@ describe('LocalJsonStorage', () => {
     const root = await tempDir();
     await writeFile(path.join(root, MANIFEST_NAME), `${JSON.stringify({ format: 'other' })}\n`);
     await expect(storage.open(root)).rejects.toThrow(/Not a Kinlore archive/);
+  });
+
+  it('rejects an archive newer than ARCHIVE_VERSION', async () => {
+    const root = await tempDir();
+    await writeFile(
+      path.join(root, MANIFEST_NAME),
+      `${JSON.stringify({
+        format: ARCHIVE_FORMAT,
+        version: ARCHIVE_VERSION + 1,
+        createdAt: timestamps().createdAt,
+        updatedAt: timestamps().updatedAt,
+      })}\n`,
+    );
+    await expect(storage.open(root)).rejects.toThrow(/newer than this app supports/);
+  });
+
+  it('leaves no tmp files after a json write', async () => {
+    const root = await tempDir();
+    const archive = await storage.create(root);
+    const person: Person = { id: 'person-ada', displayName: 'Ada', ...timestamps() };
+    await archive.savePerson(person);
+    const names = await readdir(path.join(root, 'people'));
+    expect(names).toEqual(['person-ada.json']);
   });
 });

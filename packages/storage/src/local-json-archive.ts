@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Consent, Keepsake, Person, Recording, Story } from '@kinlore/core';
 import {
@@ -36,6 +36,11 @@ function parseManifest(raw: string, root: string): ArchiveManifest {
   }
   if (typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string') {
     throw new Error(`Archive manifest is missing timestamps: ${root}`);
+  }
+  if (value.version > ARCHIVE_VERSION) {
+    throw new Error(
+      `Archive version ${String(value.version)} is newer than this app supports (${String(ARCHIVE_VERSION)})`,
+    );
   }
   return {
     format: ARCHIVE_FORMAT,
@@ -190,7 +195,18 @@ async function ensureArchiveDirs(root: string): Promise<void> {
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  const tmpPath = `${filePath}.tmp`;
+  await writeFile(tmpPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  try {
+    await rename(tmpPath, filePath);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'EEXIST' && code !== 'EPERM' && code !== 'EACCES') {
+      throw error;
+    }
+    await unlink(filePath);
+    await rename(tmpPath, filePath);
+  }
 }
 
 async function readJson<T>(filePath: string): Promise<T> {
