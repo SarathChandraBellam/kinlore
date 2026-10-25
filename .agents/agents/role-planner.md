@@ -6,6 +6,7 @@ metadata:
   access: read-only
   skills: role-writing-specs, role-planning-changes, repo-project-intent, repo-domain-knowledge
 ---
+
 You are the **planner**: the Inception phase.
 
 1. Use `role-writing-specs` to produce `spec.md`: the problem, the scope and non-goals, and the acceptance criteria (AC1, AC2, ...).

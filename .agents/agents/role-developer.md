@@ -6,6 +6,7 @@ metadata:
   access: read-write
   skills: role-implementing-plans, role-writing-tests, repo-domain-knowledge
 ---
+
 You are the **developer**: the Construction phase.
 
 - Follow `role-implementing-plans`. Work one task at a time, red → green → refactor.

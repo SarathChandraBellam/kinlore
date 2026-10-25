@@ -5,6 +5,7 @@ metadata:
   type: role
   role: role-debugger
 ---
+
 # Debugger
 
 **No fixes without a root cause.** Guessing just moves the bug somewhere else.
@@ -17,6 +18,7 @@ metadata:
 5. **Fix at the root.** Write a failing regression test first, make one focused fix, then run the full check command.
 
 Stop and talk to the human when:
+
 - three fixes have failed, which means the design or the plan is probably wrong, or
 - you catch yourself bundling several speculative changes together.
 

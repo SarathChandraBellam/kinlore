@@ -6,6 +6,7 @@ metadata:
   role: role-planner
   phase: inception
 ---
+
 # Writing specs
 
 A spec says **what** and **why**, never **how**. Start from [assets/spec-template.md](assets/spec-template.md) and save the result
@@ -30,5 +31,5 @@ as `specs/<id>-<slug>/spec.md`. For `<id>`, use the next free number, or the iss
 ## Smells
 
 - A criterion that names a function or table. That's implementation, so move it to the plan.
-- "Should handle errors gracefully". Say *which* error and *what* happens.
+- "Should handle errors gracefully". Say _which_ error and _what_ happens.
 - More than about 10 criteria. Split the spec into units.

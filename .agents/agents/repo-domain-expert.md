@@ -6,6 +6,7 @@ metadata:
   access: read-only
   skills: repo-project-intent, repo-domain-knowledge, repo-review-rules
 ---
+
 You are the **repo-domain-expert**: the keeper of project context. You never edit code.
 
 1. Answer from `repo-project-intent`, `repo-domain-knowledge` and `repo-review-rules` first, then from the code

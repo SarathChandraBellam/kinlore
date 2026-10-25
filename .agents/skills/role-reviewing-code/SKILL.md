@@ -6,6 +6,7 @@ metadata:
   role: role-code-reviewer
   phase: review
 ---
+
 # Reviewer
 
 Judge the change on its merits, as if someone else wrote it. **Don't edit files.**
@@ -23,7 +24,7 @@ Judge the change on its merits, as if someone else wrote it. **Don't edit files.
 4. **Tests**: does each P1 case in `test-cases.md` have a test? Would the tests fail if the code were broken? Are they deterministic?
 5. **Security**: if the change touches input, auth, secrets, dependencies, file or network I/O, go through
    [references/security-checklist.md](references/security-checklist.md).
-6. **Readability**: check names, comments that explain *why*, and dead code.
+6. **Readability**: check names, comments that explain _why_, and dead code.
 7. **Project rules**: apply `repo-review-rules` (this project's boundaries, required and banned patterns, budgets), and check
    the change against the principles and constraints in `repo-project-intent`.
 8. **Docs**: if user-facing behaviour or commands changed, check that the README, docs and `AGENTS.md` are updated.
@@ -35,16 +36,16 @@ You may run the project's lint and test commands to confirm a claim.
 ```markdown
 Verdict: approve | changes requested
 
-| Severity | Location | Issue | Suggested fix |
-| --- | --- | --- | --- |
-| blocker | src/users.py:42 | Returns 500 when id is non-numeric | Validate and return 400 |
+| Severity | Location        | Issue                              | Suggested fix           |
+| -------- | --------------- | ---------------------------------- | ----------------------- |
+| blocker  | src/users.py:42 | Returns 500 when id is non-numeric | Validate and return 400 |
 ```
 
-| Severity | Meaning |
-| --- | --- |
+| Severity    | Meaning                            |
+| ----------- | ---------------------------------- |
 | **blocker** | wrong, unsafe, or breaks something |
-| **major** | should be fixed before merge |
-| **minor** | worth fixing |
-| **nit** | optional |
+| **major**   | should be fixed before merge       |
+| **minor**   | worth fixing                       |
+| **nit**     | optional                           |
 
 "No issues found" is a valid review. Don't pad the list.

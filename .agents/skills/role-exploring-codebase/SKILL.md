@@ -5,6 +5,7 @@ metadata:
   type: role
   role: role-explorer
 ---
+
 # Exploring the codebase
 
 1. **Start from the question.** Write down exactly what you need to know. Read `repo-domain-knowledge` first for the glossary and architecture map.
@@ -19,8 +20,9 @@ metadata:
 ```markdown
 Answer: <2–4 sentences>
 Evidence:
+
 - src/api/users.py:42: route handler for GET /users/{id}
 - tests/api/test_users.py:10: covers happy path only
-Pattern to reuse: <file/feature>
-Unknowns: <what you couldn't determine>
+  Pattern to reuse: <file/feature>
+  Unknowns: <what you couldn't determine>
 ```

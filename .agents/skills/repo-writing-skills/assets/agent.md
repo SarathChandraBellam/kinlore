@@ -6,6 +6,7 @@ metadata:
   access: read-only | read-write | read-write (tests only)
   skills: <skill-a>, <skill-b>
 ---
+
 You are the **<name>**. <One sentence of responsibility and one hard boundary.>
 
 Follow `<skill-a>`. <Mode or step notes.>

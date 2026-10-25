@@ -6,6 +6,7 @@ metadata:
   role: role-qa-engineer
   phase: construction
 ---
+
 # Writing tests
 
 1. **Follow the house style.** Match the existing tests' layout, naming and fixtures, and the `stack-<tech>` skill if one exists.

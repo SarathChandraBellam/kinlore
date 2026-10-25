@@ -6,6 +6,7 @@ metadata:
   role: role-qa-engineer
   phase: inception
 ---
+
 # Designing test cases (shift-left QA)
 
 Test cases are written **before the code**, so the developer builds against them and nobody discovers what "done" means at
@@ -33,12 +34,12 @@ the end. Save them as `specs/<id>-<slug>/test-cases.md`.
 ```markdown
 # Test cases <id>
 
-| ID | Criterion | Level | Priority | Given | When | Then |
-| --- | --- | --- | --- | --- | --- | --- |
-| TC1 | AC1 | unit | P1 | user 7 exists | GET /users/7 | 200 + body.id == 7 |
-| TC2 | AC2 | unit | P1 | — | GET /users/abc | 400 "id must be numeric" |
-| TC3 | AC2 | unit | P2 | — | GET /users/0 and /users/-1 | 400 |
-| TC4 | AC3 | integration | P1 | db has no user 999 | GET /users/999 | 404 |
+| ID  | Criterion | Level       | Priority | Given              | When                       | Then                     |
+| --- | --------- | ----------- | -------- | ------------------ | -------------------------- | ------------------------ |
+| TC1 | AC1       | unit        | P1       | user 7 exists      | GET /users/7               | 200 + body.id == 7       |
+| TC2 | AC2       | unit        | P1       | —                  | GET /users/abc             | 400 "id must be numeric" |
+| TC3 | AC2       | unit        | P2       | —                  | GET /users/0 and /users/-1 | 400                      |
+| TC4 | AC3       | integration | P1       | db has no user 999 | GET /users/999             | 404                      |
 
 Untestable or unclear criteria: none
 Regression scope: existing GET /users list endpoint

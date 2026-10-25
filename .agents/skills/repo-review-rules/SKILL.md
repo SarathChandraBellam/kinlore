@@ -5,30 +5,46 @@ metadata:
   type: repo
   kind: review
 ---
+
 # Project review rules
 
 `role-reviewing-code` covers generic quality. This skill holds the rules **only this project** has. Every rule needs a reason,
 so reviewers apply it with judgment rather than blindly.
 
 ## Architecture boundaries
-| Rule | Why | Severity if broken |
-| --- | --- | --- |
-| _e.g. `domain/` never imports from `api/` or `db/`_ | _keeps business logic testable_ | major |
+
+| Rule                                                                        | Why                                 | Severity if broken |
+| --------------------------------------------------------------------------- | ----------------------------------- | ------------------ |
+| Import `@kinlore/*` only from the package root, never `/src/`               | keeps public API small              | major              |
+| Renderer must not import `@kinlore/storage`, `node:fs`, or `electron`       | isolation; filesystem stays in main | blocker            |
+| Preload only exposes `KinloreApi`; no general `ipcRenderer`                 | typed, auditable IPC                | major              |
+| `packages/core` does not import Electron, React, or `node:fs`               | domain stays portable               | major              |
+| Window `webPreferences`: `contextIsolation: true`, `nodeIntegration: false` | Electron security baseline          | blocker            |
 
 ## Required patterns
-- _e.g. All DB access goes through repositories in `src/db/repos/`._
-- _e.g. Every new endpoint has an auth dependency and a contract test._
+
+- New IPC channels are added to `@kinlore/ipc-contract` first, then preload, then main.
+- Archive writes go through `StorageProvider` / `Archive`, not ad-hoc `writeFile` in main.
+- Entity ids are validated before they become filenames.
 
 ## Banned patterns
-- _e.g. No raw SQL string formatting. Use parameters._
-- _e.g. No `print`. Use the project logger._
+
+- Network calls, analytics, accounts, or uploads of archive contents.
+- Implementing encryption inside `LocalJsonStorage` instead of `EncryptionProvider`.
+- `any`, unchecked indexed access, or deep workspace imports.
+- Committing `KinloreArchive/`, `.env`, keys, or real family media.
 
 ## Budgets and non-functional rules
-- _e.g. No new dependency over 1 MB without approval. Endpoint p95 must stay under 300 ms on the bench._
+
+- Do not add a dependency that is unused after the change.
+- Do not add native addons without a plan for Windows, macOS, and Linux.
 
 ## Compliance and data
-- _e.g. PII fields (`email`, `phone`) are never logged and are masked in errors._
+
+- Treat recordings, transcripts, and people names as sensitive family data.
+- Logs must not include archive contents or file bytes.
 
 ## How agents use this
+
 - **code-reviewer and security-reviewer:** apply every rule here after the generic checklist, and cite the rule in each finding.
 - **Anyone:** when the same review comment appears twice, propose it as a new rule here.
