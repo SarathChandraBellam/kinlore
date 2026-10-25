@@ -120,9 +120,10 @@ These run **in the repo, before merge**. `role-verifying-changes` runs all of th
 
 Feature branch → PR to `main` → the `ci` status check must pass → maintainer
 approval → merge. A merge to `main` runs `ci` again and publishes an unsigned
-GitHub prerelease tagged `staging-<short sha>`. Production: push a `vX.Y.Z`
-tag (or run **release-production** via `workflow_dispatch`) to create a full
-GitHub Release with installers and notes from `CHANGELOG.md`.
+GitHub prerelease tagged `staging-<short sha>`. Production: bump version and
+CHANGELOG via PR, then Actions → **release-production** → Run workflow with
+the version; a maintainer approves the `production` environment and the
+release is published.
 
 Details: [CONTRIBUTING.md](CONTRIBUTING.md). Workflows live in
 `.github/workflows/`.

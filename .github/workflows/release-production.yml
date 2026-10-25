@@ -1,26 +1,68 @@
 name: release-production
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing git tag to release (vX.Y.Z). Required when dispatching from a branch.
-        required: false
+      version:
+        description: Semver to release (X.Y.Z). Must match package.json on main.
+        required: true
         type: string
 
 concurrency:
-  group: release-production-${{ github.event.inputs.tag || github.ref }}
+  group: release-production
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate branch and version
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "release-production must run from main (got ${GITHUB_REF})"
+            exit 1
+          fi
+          python3 - "$VERSION" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          version = sys.argv[1]
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+              print(f"version {version!r} is not X.Y.Z semver")
+              sys.exit(1)
+
+          def pkg_version(path: str) -> str:
+              data = json.loads(Path(path).read_text(encoding="utf-8"))
+              value = data.get("version")
+              if not isinstance(value, str):
+                  raise SystemExit(f"{path} version is missing or not a string")
+              return value
+
+          root = pkg_version("package.json")
+          desktop = pkg_version("apps/desktop/package.json")
+          if version != root or version != desktop:
+              print(
+                  f"version {version!r} does not match package.json "
+                  f"(root={root!r}, apps/desktop={desktop!r})"
+              )
+              sys.exit(1)
+          print(f"version {version} matches package.json")
+          PY
+
   package:
     name: package-${{ matrix.os }}
+    needs: validate
     runs-on: ${{ matrix.os }}
     environment: production
     timeout-minutes: 45
@@ -46,8 +88,6 @@ jobs:
       # WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -74,23 +114,17 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
-      - name: Create GitHub Release
+      - name: Tag and create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INPUT_TAG: ${{ github.event.inputs.tag }}
+          VERSION: ${{ github.event.inputs.version }}
         run: |
           set -euo pipefail
-          TAG="${INPUT_TAG:-$GITHUB_REF_NAME}"
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-            echo "Ref '$TAG' is not a vX.Y.Z tag. Pass the tag input when using workflow_dispatch."
-            exit 1
-          fi
+          TAG="v${VERSION}"
           python3 - "$TAG" <<'PY'
           import re
           import sys
@@ -131,9 +165,4 @@ jobs:
             echo "No production artifacts to publish"
             exit 1
           fi
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "${files[@]}" --clobber
-            gh release edit "$TAG" --draft=false --prerelease=false --title "$TAG" --notes-file release-notes.md
-          else
-            gh release create "$TAG" "${files[@]}" --title "$TAG" --notes-file release-notes.md
-          fi
+          gh release create "$TAG" "${files[@]}" --target "${GITHUB_SHA}" --title "$TAG" --notes-file release-notes.md
