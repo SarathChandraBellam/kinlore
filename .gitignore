@@ -5,6 +5,18 @@
 *.pem
 *.key
 
+# dependencies and build
+node_modules/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# local archive (never commit family recordings)
+KinloreArchive/
+
 # OS / editors
 .DS_Store
 .idea/
+.conductor/cursor.log
