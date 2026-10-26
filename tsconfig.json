@@ -2,6 +2,11 @@
   "files": [],
   "references": [
     { "path": "packages/core" },
+    { "path": "packages/interview" },
+    { "path": "packages/ask" },
+    { "path": "packages/ingest" },
+    { "path": "packages/secrets" },
+    { "path": "packages/engine" },
     { "path": "packages/storage" },
     { "path": "packages/ipc-contract" },
     { "path": "apps/desktop" }

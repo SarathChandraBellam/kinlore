@@ -7,9 +7,15 @@
     "tsBuildInfoFile": "dist/tsconfig.main.tsbuildinfo",
     "types": ["node"]
   },
-  "include": ["src/main.ts", "src/ipc-guard.ts"],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/renderer/**", "src/preload.ts", "src/**/*.test.ts"],
   "references": [
     { "path": "../../packages/core" },
+    { "path": "../../packages/interview" },
+    { "path": "../../packages/ask" },
+    { "path": "../../packages/ingest" },
+    { "path": "../../packages/secrets" },
+    { "path": "../../packages/engine" },
     { "path": "../../packages/storage" },
     { "path": "../../packages/ipc-contract" }
   ]

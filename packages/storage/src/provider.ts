@@ -1,10 +1,21 @@
-import type { Consent, Keepsake, Person, Recording, Story } from '@kinlore/core';
+import type {
+  Consent,
+  Interview,
+  Keepsake,
+  Person,
+  Recipe,
+  Recording,
+  Story,
+  TimelineEvent,
+  Transcript,
+} from '@kinlore/core';
 
 export interface ArchiveManifest {
   format: 'kinlore-archive';
   version: number;
   createdAt: string;
   updatedAt: string;
+  encrypted?: boolean;
 }
 
 export interface Archive {
@@ -21,6 +32,14 @@ export interface Archive {
   saveKeepsake(keepsake: Keepsake): Promise<Keepsake>;
   listConsents(): Promise<Consent[]>;
   saveConsent(consent: Consent): Promise<Consent>;
+  listTranscripts(): Promise<Transcript[]>;
+  saveTranscript(transcript: Transcript): Promise<Transcript>;
+  listInterviews(): Promise<Interview[]>;
+  saveInterview(interview: Interview): Promise<Interview>;
+  listTimeline(): Promise<TimelineEvent[]>;
+  saveTimelineEvent(event: TimelineEvent): Promise<TimelineEvent>;
+  listRecipes(): Promise<Recipe[]>;
+  saveRecipe(recipe: Recipe): Promise<Recipe>;
   writeMedia(relativePath: string, data: Uint8Array): Promise<void>;
   readMedia(relativePath: string): Promise<Uint8Array>;
 }

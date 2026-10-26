@@ -49,13 +49,15 @@ requires a review from `@SarathChandraBellam`.
    typecheck, test, build on Ubuntu).
 3. After maintainer approval and merge, [release-staging.yml](.github/workflows/release-staging.yml)
    packages the Electron app (unsigned) on Ubuntu, Windows, and macOS and
-   publishes a GitHub _prerelease_ tagged `staging-<short sha>`.
+   publishes a GitHub _prerelease_ tagged `staging-<short sha>`. The release
+   is rejected unless it contains a Linux AppImage, a Windows installer, a
+   macOS disk image, and `SHA256SUMS`.
 4. Production: bump the version and [CHANGELOG.md](CHANGELOG.md) in a PR and
    merge to `main`. Then in Actions, run **release-production** with that
    `version` (X.Y.Z). A maintainer approves the `production` environment;
    [release-production.yml](.github/workflows/release-production.yml) tags
-   `vX.Y.Z` and publishes a GitHub Release with the installers and notes
-   from the changelog.
+   `vX.Y.Z` and publishes a GitHub Release with the same installer assets and
+   notes from the changelog. An existing production tag is not replaced.
 
 GitHub Environments `staging` and `production` must exist on the repository
 (create them under Settings → Environments). Code signing secrets (`CSC_LINK`,
