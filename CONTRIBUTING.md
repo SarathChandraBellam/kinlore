@@ -74,3 +74,28 @@ Node `fs`. Talk to the main process through `window.kinlore`.
 ## Security reports
 
 Please do not file public issues for vulnerabilities. See [SECURITY.md](SECURITY.md).
+
+## Design, languages, and first contributions
+
+Read [the family experience spec](specs/003-family-experience/spec.md) before
+changing navigation or a primary flow. Propose a journey and its empty, pending,
+error, and success states; include desktop and narrow layouts, visible keyboard
+focus, and long translated text. Explain the problem in an issue before a broad
+redesign. Small PRs should preserve archive compatibility and offline operation.
+
+Contributions can be code, design sketches, accessibility findings, English/Telugu/
+Hindi/Tamil copy review, setup docs, or test cases. A useful first issue has a clear
+reproduction, expected result, and a small scope. Maintainers can label suitable
+issues `good first issue` or `help wanted`; no labels or public repository settings
+are changed by this implementation.
+
+Use invented people and text in fixtures. Do not upload a real family archive,
+recording, screenshot containing private data, or API key. Tests use temporary
+archives and mocked OpenRouter responses; contributors do not need a paid provider.
+When testing AI drafts, verify source references and the separate apply/save step.
+Only explicitly approved text requests may contact OpenRouter from main; keys,
+sealed words, audio, and unrelated records must never appear in the preview.
+
+Before release, perform live microphone, playback, keyboard, screen-reader, narrow
+layout, and all-language checks. Automated rendering checks cover structure and
+privacy but do not replace these checks or sessions with families.

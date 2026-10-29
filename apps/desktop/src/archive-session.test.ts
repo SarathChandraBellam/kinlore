@@ -15,7 +15,7 @@ async function session(): Promise<{ session: ArchiveSession; root: string }> {
   cleanup.push(root);
   const created = new ArchiveSession(path.join(root, 'secrets.json'));
   created.allowRoot(root);
-  await created.createArchive(root);
+  await created.createArchive(root, 'synthetic-test-passphrase');
   return { session: created, root };
 }
 

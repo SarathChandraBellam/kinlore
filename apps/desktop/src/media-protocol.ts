@@ -49,7 +49,13 @@ export function handleMediaProtocol(session: ArchiveSession): void {
         return new Response('Not available', { status: 403 });
       }
       const type = MIME[path.extname(relative).toLowerCase()] ?? 'application/octet-stream';
-      return new Response(bytes, { headers: { 'Content-Type': type } });
+      return new Response(bytes, {
+        headers: {
+          'Content-Type': type,
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+        },
+      });
     } catch {
       return new Response('Not found', { status: 404 });
     }

@@ -4,9 +4,11 @@ import { IPC, type KinloreApi } from '@kinlore/ipc-contract';
 const api: KinloreApi = {
   getDefaultArchivePath: () => ipcRenderer.invoke(IPC.archiveDefaultPath),
   selectArchiveFolder: () => ipcRenderer.invoke(IPC.archiveSelectFolder),
-  createArchive: (rootPath) => ipcRenderer.invoke(IPC.archiveCreate, rootPath),
+  createArchive: (rootPath, passphrase, replaceExisting) =>
+    ipcRenderer.invoke(IPC.archiveCreate, rootPath, passphrase, replaceExisting),
   openArchive: (rootPath) => ipcRenderer.invoke(IPC.archiveOpen, rootPath),
   archiveStatus: () => ipcRenderer.invoke(IPC.archiveStatus),
+  inspectArchive: (rootPath) => ipcRenderer.invoke(IPC.archiveInspect, rootPath),
   enableEncryption: (passphrase) => ipcRenderer.invoke(IPC.archiveEncrypt, passphrase),
   unlockArchive: (passphrase) => ipcRenderer.invoke(IPC.archiveUnlock, passphrase),
   unlockArchiveWithRecovery: (recoveryKey) =>
@@ -37,6 +39,10 @@ const api: KinloreApi = {
   runRemoteStep: (request) => ipcRenderer.invoke(IPC.outboundRun, request),
   voiceDecision: (request) => ipcRenderer.invoke(IPC.voiceDecision, request),
   engineStatus: () => ipcRenderer.invoke(IPC.engineStatus),
+  getOpenRouterConfig: () => ipcRenderer.invoke(IPC.openRouterConfig),
+  saveOpenRouterConfig: (input) => ipcRenderer.invoke(IPC.openRouterSaveConfig, input),
+  prepareLlm: (request) => ipcRenderer.invoke(IPC.llmPrepare, request),
+  runLlm: (approval) => ipcRenderer.invoke(IPC.llmRun, approval),
 };
 
 contextBridge.exposeInMainWorld('kinlore', api);

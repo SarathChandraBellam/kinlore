@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Person } from '@kinlore/core';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encryptExistingArchive } from './encrypt-archive.js';
 import { ENCRYPTION_ENVELOPE_NAME } from './layout.js';
 import { LocalJsonStorage } from './local-json-archive.js';
@@ -17,6 +17,7 @@ const storage = new LocalJsonStorage();
 const cleanup: string[] = [];
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(cleanup.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
@@ -54,6 +55,31 @@ describe('opt-in archive encryption', () => {
     const withRecovery = await unlockWithRecovery(envelope, recoveryKey);
     const recovered = await storage.openWithCodec(root, withRecovery);
     await expect(recovered.getPerson('ada')).resolves.toEqual(person);
+  });
+
+  it('persists wrapped keys before a migration write can fail', async () => {
+    const root = await tempDir();
+    const archive = await storage.create(root);
+    const person: Person = {
+      id: 'ada',
+      displayName: 'Synthetic name',
+      createdAt: '2026-10-29T00:00:00.000Z',
+      updatedAt: '2026-10-29T00:00:00.000Z',
+    };
+    await archive.savePerson(person);
+    const original = archive.savePerson.bind(archive);
+    vi.spyOn(archive, 'savePerson').mockImplementationOnce(async (value) => {
+      await original(value);
+      throw new Error('Simulated interruption');
+    });
+    await expect(encryptExistingArchive(archive, 'synthetic-passphrase')).rejects.toThrow(
+      'Simulated interruption',
+    );
+    const raw = await archive.readEncryptionEnvelope();
+    const codec = await unlockWithPassphrase(parseEncryptionEnvelope(raw), 'synthetic-passphrase');
+    const encrypted = await readFile(path.join(root, 'people', 'ada.json'));
+    const decoded = await codec.open(encrypted);
+    expect(JSON.parse(Buffer.from(decoded).toString('utf8'))).toEqual(person);
   });
 
   it('rejects the wrong passphrase and still blocks path escape', async () => {

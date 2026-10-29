@@ -10,7 +10,8 @@ Claude Code: [CLAUDE.md](CLAUDE.md) is a pointer to this file.
 Kinlore is a local-first desktop app that helps families keep stories told by
 elders — in their own voices. This repo is the open-source Electron + TypeScript
 skeleton: domain types, a portable archive folder, and a sandboxed desktop shell.
-AI, ASR, import, and encryption are not implemented yet.
+Optional OpenRouter text assistance is available with per-request approval.
+ASR and generated voice are not implemented; imports and encrypted local desktop archives are supported.
 
 Details: [`repo-project-intent`](.agents/skills/repo-project-intent/SKILL.md) and
 [`repo-domain-knowledge`](.agents/skills/repo-domain-knowledge/SKILL.md).
@@ -70,8 +71,8 @@ Archive root: a user-chosen folder, or `<app.getPath('userData')>/KinloreArchive
   encryption.json              # wrapped keys only, when encryption is on
 ```
 
-Pretty-printed JSON + media files. Portable: copy the folder. Encryption is
-opt-in (`AesGcmEncryption` via `ArchiveCodec`). `LocalJsonStorage` stays
+Pretty-printed JSON + media files. Portable: copy the folder. Desktop archives require encryption (`AesGcmEncryption` via `ArchiveCodec`).
+Legacy plaintext archives are read-only until encrypted in Settings. `LocalJsonStorage` stays
 plaintext until that codec is set. API keys live outside the archive.
 
 Entity ids are `[A-Za-z0-9_-]+` (UUIDs are fine). Media paths must stay inside

@@ -1,5 +1,6 @@
-import { access, mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { access, mkdir, rm, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import type {
   Consent,
   Interview,
@@ -97,6 +98,73 @@ async function readManifestFile(root: string): Promise<ArchiveManifest> {
 }
 
 export class LocalJsonStorage implements StorageProvider {
+  async inspect(rootPath: string): Promise<'missing' | 'existing' | 'incomplete'> {
+    const root = path.resolve(rootPath);
+    if (await pathExists(path.join(root, MANIFEST_NAME))) return 'existing';
+    return (await pathExists(path.join(root, ENCRYPTION_ENVELOPE_NAME))) ? 'incomplete' : 'missing';
+  }
+
+  /** Replacement never deletes the existing archive: it becomes a sibling backup. */
+  async replaceWithCodec(
+    rootPath: string,
+    codec: ArchiveCodec,
+    wrappedKeys: unknown,
+  ): Promise<{ archive: LocalJsonArchive; backupPath: string }> {
+    const root = path.resolve(rootPath);
+    await readManifestFile(root);
+    const suffix = `${Date.now()}-${randomUUID()}`;
+    const stage = `${root}.new-${suffix}`;
+    const backupPath = `${root}.backup-${suffix}`;
+    try {
+      await this.createWithCodec(stage, codec, wrappedKeys);
+      await rename(root, backupPath);
+      try {
+        await rename(stage, root);
+      } catch {
+        if (!(await pathExists(root))) await rename(backupPath, root);
+        throw new Error(
+          `Archive replacement failed. The original was kept at its original location or backup: ${backupPath}`,
+        );
+      }
+      const archive = new LocalJsonArchive(root);
+      archive.useCodec(codec);
+      return { archive, backupPath };
+    } finally {
+      await rm(stage, { recursive: true, force: true });
+    }
+  }
+
+  /** Creates an archive with a supplied codec; key creation belongs to the caller. */
+  async createWithCodec(
+    rootPath: string,
+    codec: ArchiveCodec,
+    wrappedKeys: unknown,
+  ): Promise<LocalJsonArchive> {
+    if (codec.id === 'identity') throw new Error('An encryption key is required');
+    const root = path.resolve(rootPath);
+    await mkdir(root, { recursive: true });
+    const manifestPath = path.join(root, MANIFEST_NAME);
+    if (
+      (await pathExists(manifestPath)) ||
+      (await pathExists(path.join(root, ENCRYPTION_ENVELOPE_NAME)))
+    ) {
+      throw new Error(`An archive already exists at ${root}`);
+    }
+    const archive = new LocalJsonArchive(root);
+    archive.useCodec(codec);
+    await ensureArchiveDirs(root);
+    await archive.writeEncryptionEnvelope(wrappedKeys);
+    const now = new Date().toISOString();
+    await writePlainJson(manifestPath, {
+      format: ARCHIVE_FORMAT,
+      version: ENCRYPTED_ARCHIVE_VERSION,
+      encrypted: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return archive;
+  }
+
   async create(rootPath: string): Promise<LocalJsonArchive> {
     const root = path.resolve(rootPath);
     await mkdir(root, { recursive: true });

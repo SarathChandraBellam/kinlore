@@ -43,15 +43,18 @@ import {
 } from '@kinlore/ingest';
 import type {
   ArchiveStatus,
+  ArchivePresence,
   CaptureResult,
+  EncryptedArchiveResult,
   EngineStatus,
   ImportResult,
   LibrarySnapshot,
   SecretStatus,
 } from '@kinlore/ipc-contract';
-import { FileSecretStore } from '@kinlore/secrets';
+import { FileSecretStore, type SecretProtection } from '@kinlore/secrets';
 import {
   ArchiveEncryptedError,
+  createArchiveKeys,
   LocalJsonArchive,
   LocalJsonStorage,
   encryptExistingArchive,
@@ -60,6 +63,7 @@ import {
   unlockWithRecovery,
 } from '@kinlore/storage';
 import { resolveAllowedArchivePath } from './ipc-guard.js';
+import { AssistanceSession } from './assistance.js';
 
 const speechEngine = new UnavailableSpeechEngine();
 const voiceEngine = new NoVoiceEngine();
@@ -106,11 +110,22 @@ export class ArchiveSession {
   private encryptedRoot: string | undefined;
   private encrypted = false;
   private readonly secrets: FileSecretStore;
+  private readonly assistance: AssistanceSession;
+  private mutating = false;
   readonly allowedArchiveRoots = new Set<string>();
   readonly allowedImports = new Set<string>();
 
-  constructor(secretFile: string) {
-    this.secrets = new FileSecretStore(secretFile);
+  constructor(secretFile: string, secretProtection?: SecretProtection) {
+    this.secrets = new FileSecretStore(secretFile, secretProtection);
+    this.assistance = new AssistanceSession(
+      this.secrets,
+      () => this.archive,
+      () => this.loadLibrary(),
+    );
+  }
+
+  initializeSecretProtection(): Promise<void> {
+    return this.secrets.migrate();
   }
 
   allowRoot(rootPath: string): string {
@@ -140,44 +155,94 @@ export class ArchiveSession {
     return this.archive;
   }
 
+  private requireWritableArchive(): LocalJsonArchive {
+    const archive = this.requireArchive();
+    if (!this.encrypted) throw new Error('Encrypt this legacy archive before changing family data');
+    return archive;
+  }
+
+  private async mutate<T>(work: () => Promise<T>): Promise<T> {
+    if (this.mutating)
+      throw new Error('Another archive change is in progress. Try again afterward.');
+    this.mutating = true;
+    const finish = this.assistance.beginArchiveChange();
+    try {
+      return await work();
+    } finally {
+      this.mutating = false;
+      finish();
+    }
+  }
+
   private assertRoot(rootPath: string): string {
     return resolveAllowedArchivePath(rootPath, this.allowedArchiveRoots);
   }
 
-  async createArchive(rootPath: string): Promise<ArchiveStatus> {
-    this.archive = await storage.create(this.assertRoot(rootPath));
-    this.encrypted = false;
-    this.encryptedRoot = undefined;
-    return this.status();
+  async createArchive(
+    rootPath: string,
+    passphrase: string,
+    replaceExisting = false,
+  ): Promise<EncryptedArchiveResult> {
+    return this.mutate(async () => {
+      this.assistance.invalidate();
+      if (typeof passphrase !== 'string')
+        throw new Error('A passphrase is required for a new archive');
+      const root = this.assertRoot(rootPath);
+      const created = await createArchiveKeys(passphrase);
+      const replaced = replaceExisting
+        ? await storage.replaceWithCodec(root, created.encryption, created.envelope)
+        : undefined;
+      const archive =
+        replaced?.archive ??
+        (await storage.createWithCodec(root, created.encryption, created.envelope));
+      this.archive = archive;
+      this.encrypted = true;
+      this.encryptedRoot = root;
+      return {
+        status: this.status(),
+        recoveryKey: created.recoveryKey,
+        ...(replaced === undefined ? {} : { backupPath: replaced.backupPath }),
+      };
+    });
+  }
+
+  async inspectArchive(rootPath: string): Promise<ArchivePresence> {
+    return storage.inspect(this.assertRoot(rootPath));
   }
 
   async openArchive(rootPath: string): Promise<ArchiveStatus> {
-    const root = this.assertRoot(rootPath);
-    try {
-      this.archive = await storage.open(root);
-      this.encrypted = false;
-      this.encryptedRoot = undefined;
-      return this.status();
-    } catch (error) {
-      if (error instanceof ArchiveEncryptedError) {
-        this.archive = undefined;
-        this.encrypted = true;
-        this.encryptedRoot = root;
+    return this.mutate(async () => {
+      this.assistance.invalidate();
+      const root = this.assertRoot(rootPath);
+      try {
+        this.archive = await storage.open(root);
+        this.encrypted = false;
+        this.encryptedRoot = undefined;
         return this.status();
+      } catch (error) {
+        if (error instanceof ArchiveEncryptedError) {
+          this.archive = undefined;
+          this.encrypted = true;
+          this.encryptedRoot = root;
+          return this.status();
+        }
+        throw error;
       }
-      throw error;
-    }
+    });
   }
 
   async enableEncryption(passphrase: string): Promise<{ recoveryKey: string }> {
-    const archive = this.requireArchive();
-    if (this.encrypted) {
-      throw new Error('Archive is already encrypted');
-    }
-    const result = await encryptExistingArchive(archive, passphrase);
-    this.encrypted = true;
-    this.encryptedRoot = archive.rootPath;
-    return result;
+    return this.mutate(async () => {
+      this.assistance.invalidate();
+      const archive = this.requireArchive();
+      if (this.encrypted) {
+        throw new Error('Archive is already encrypted');
+      }
+      const result = await encryptExistingArchive(archive, passphrase);
+      this.encrypted = true;
+      this.encryptedRoot = archive.rootPath;
+      return result;
+    });
   }
 
   async unlockArchive(passphrase: string): Promise<ArchiveStatus> {
@@ -191,24 +256,29 @@ export class ArchiveSession {
   }
 
   private async unlock(secret: string, mode: 'passphrase' | 'recovery'): Promise<void> {
-    if (this.encryptedRoot === undefined) {
-      throw new Error('No encrypted archive is waiting');
-    }
-    const probe = new LocalJsonArchive(this.encryptedRoot);
-    const raw = await probe.readEncryptionEnvelope();
-    if (raw === undefined) {
-      throw new Error('Encryption envelope is missing');
-    }
-    const envelope = parseEncryptionEnvelope(raw);
-    const codec =
-      mode === 'passphrase'
-        ? await unlockWithPassphrase(envelope, secret)
-        : await unlockWithRecovery(envelope, secret);
-    this.archive = await storage.openWithCodec(this.encryptedRoot, codec);
-    this.encrypted = true;
+    return this.mutate(async () => {
+      this.assistance.invalidate();
+      if (this.encryptedRoot === undefined) {
+        throw new Error('No encrypted archive is waiting');
+      }
+      const probe = new LocalJsonArchive(this.encryptedRoot);
+      const raw = await probe.readEncryptionEnvelope();
+      if (raw === undefined) {
+        throw new Error('Encryption envelope is missing');
+      }
+      const envelope = parseEncryptionEnvelope(raw);
+      const codec =
+        mode === 'passphrase'
+          ? await unlockWithPassphrase(envelope, secret)
+          : await unlockWithRecovery(envelope, secret);
+      this.archive = await storage.openWithCodec(this.encryptedRoot, codec);
+      this.encrypted = true;
+    });
   }
 
   lockArchive(): ArchiveStatus {
+    if (this.mutating) throw new Error('An archive change is in progress. Try locking afterward.');
+    this.assistance.invalidate();
     if (this.encrypted) {
       this.encryptedRoot = this.archive?.rootPath ?? this.encryptedRoot;
       this.archive = undefined;
@@ -221,7 +291,11 @@ export class ArchiveSession {
   }
 
   async savePerson(value: unknown): Promise<Person> {
-    return this.requireArchive().savePerson(parsePerson(value));
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      this.assistance.invalidate();
+      return this.requireArchive().savePerson(parsePerson(value));
+    });
   }
 
   async listConsents(): Promise<Consent[]> {
@@ -229,12 +303,16 @@ export class ArchiveSession {
   }
 
   async saveConsent(value: unknown): Promise<Consent> {
-    const consent = parseConsent(value);
-    const people = await this.requireArchive().listPeople();
-    if (!people.some((person) => person.id === consent.personId)) {
-      throw new Error('That person is not in the archive');
-    }
-    return this.requireArchive().saveConsent(consent);
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      this.assistance.invalidate();
+      const consent = parseConsent(value);
+      const people = await this.requireArchive().listPeople();
+      if (!people.some((person) => person.id === consent.personId)) {
+        throw new Error('That person is not in the archive');
+      }
+      return this.requireArchive().saveConsent(consent);
+    });
   }
 
   async loadLibrary(): Promise<LibrarySnapshot> {
@@ -304,86 +382,98 @@ export class ArchiveSession {
   }
 
   async saveCapturedAnswer(value: unknown): Promise<CaptureResult> {
-    const record = asRecord(value, 'Recording');
-    const archive = this.requireArchive();
-    const personId = parseEntityId(record.personId, 'Person id');
-    if (typeof record.language !== 'string' || !isPreferredLanguage(record.language)) {
-      throw new Error('Language is invalid');
-    }
-    const language = record.language;
-    const question = requiredText(record.question, 'Question', 500);
-    const spokenWords = requiredText(record.spokenWords, 'Spoken words', 8000);
-    if (typeof record.extension !== 'string') {
-      throw new Error('File type is not supported');
-    }
-    const extension = record.extension.startsWith('.')
-      ? record.extension.toLowerCase()
-      : `.${record.extension.toLowerCase()}`;
-    const kind = classifyImport(`answer${extension}`);
-    if (kind !== 'audio' && kind !== 'video') {
-      throw new Error('File type is not supported');
-    }
-    await this.assertRecordingConsent([personId]);
-    if (typeof record.mediaBase64 !== 'string') {
-      throw new Error('Recording data is invalid');
-    }
-    const bytes = decodeMedia(record.mediaBase64);
-    const stamp = nowIso();
-    const recordingId = randomUUID();
-    const recording: Recording = {
-      id: recordingId,
-      title: question.slice(0, 200),
-      personIds: [personId],
-      mediaRelativePath: mediaRelativePath(recordingId, extension),
-      recordedAt: stamp,
-      language,
-      origin: 'capture',
-      createdAt: stamp,
-      updatedAt: stamp,
-    };
-    if (
-      typeof record.durationMs === 'number' &&
-      Number.isFinite(record.durationMs) &&
-      record.durationMs > 0
-    ) {
-      recording.durationMs = record.durationMs;
-    }
-    const transcript: Transcript = {
-      id: randomUUID(),
-      recordingId,
-      source: 'typed',
-      question,
-      segments: [
-        {
-          id: randomUUID(),
-          speakerId: personId,
-          startMs: 0,
-          endMs: recording.durationMs ?? 0,
-          text: spokenWords,
-          language,
-        },
-      ],
-      createdAt: stamp,
-      updatedAt: stamp,
-    };
-    if (record.promptId !== undefined) {
-      transcript.promptId = parseEntityId(record.promptId, 'Prompt id');
-    }
-    await archive.writeMedia(recording.mediaRelativePath, bytes);
-    await archive.saveRecording(recording);
-    await archive.saveTranscript(transcript);
-    const interviewId =
-      record.interviewId === undefined
-        ? undefined
-        : parseEntityId(record.interviewId, 'Interview id');
-    const interview = await this.rememberInterview(
-      interviewId === undefined
-        ? { personId, language, question }
-        : { personId, language, question, interviewId },
-      recordingId,
-      stamp,
-    );
-    return { recording, transcript, interview };
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      const record = asRecord(value, 'Recording');
+      const archive = this.requireArchive();
+      const personId = parseEntityId(record.personId, 'Person id');
+      if (typeof record.language !== 'string' || !isPreferredLanguage(record.language)) {
+        throw new Error('Language is invalid');
+      }
+      const language = record.language;
+      const question = requiredText(record.question, 'Question', 500);
+      if (
+        record.spokenWords !== undefined &&
+        (typeof record.spokenWords !== 'string' || record.spokenWords.trim().length > 8000)
+      ) {
+        throw new Error('Spoken words are invalid or too long');
+      }
+      const spokenWords = typeof record.spokenWords === 'string' ? record.spokenWords.trim() : '';
+      if (typeof record.extension !== 'string') {
+        throw new Error('File type is not supported');
+      }
+      const extension = record.extension.startsWith('.')
+        ? record.extension.toLowerCase()
+        : `.${record.extension.toLowerCase()}`;
+      const kind = classifyImport(`answer${extension}`);
+      if (kind !== 'audio' && kind !== 'video') {
+        throw new Error('File type is not supported');
+      }
+      await this.assertRecordingConsent([personId]);
+      if (typeof record.mediaBase64 !== 'string') {
+        throw new Error('Recording data is invalid');
+      }
+      const bytes = decodeMedia(record.mediaBase64);
+      const stamp = nowIso();
+      const recordingId = randomUUID();
+      const recording: Recording = {
+        id: recordingId,
+        title: question.slice(0, 200),
+        personIds: [personId],
+        mediaRelativePath: mediaRelativePath(recordingId, extension),
+        recordedAt: stamp,
+        language,
+        origin: 'capture',
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
+      if (
+        typeof record.durationMs === 'number' &&
+        Number.isFinite(record.durationMs) &&
+        record.durationMs > 0
+      ) {
+        recording.durationMs = record.durationMs;
+      }
+      const transcript: Transcript | undefined =
+        spokenWords === ''
+          ? undefined
+          : {
+              id: randomUUID(),
+              recordingId,
+              source: 'typed',
+              question,
+              segments: [
+                {
+                  id: randomUUID(),
+                  speakerId: personId,
+                  startMs: 0,
+                  endMs: recording.durationMs ?? 0,
+                  text: spokenWords,
+                  language,
+                },
+              ],
+              createdAt: stamp,
+              updatedAt: stamp,
+            };
+      if (transcript !== undefined && record.promptId !== undefined) {
+        transcript.promptId = parseEntityId(record.promptId, 'Prompt id');
+      }
+      await archive.writeMedia(recording.mediaRelativePath, bytes);
+      await archive.saveRecording(recording);
+      if (transcript !== undefined) await archive.saveTranscript(transcript);
+      const interviewId =
+        record.interviewId === undefined
+          ? undefined
+          : parseEntityId(record.interviewId, 'Interview id');
+      const interview = await this.rememberInterview(
+        interviewId === undefined
+          ? { personId, language, question }
+          : { personId, language, question, interviewId },
+        recordingId,
+        stamp,
+      );
+      return { recording, ...(transcript === undefined ? {} : { transcript }), interview };
+    });
   }
 
   private async rememberInterview(
@@ -428,36 +518,39 @@ export class ArchiveSession {
   }
 
   async importSelected(value: unknown): Promise<ImportResult> {
-    const request = asRecord(value, 'Import');
-    const archive = this.requireArchive();
-    if (!Array.isArray(request.paths) || request.paths.length === 0) {
-      throw new Error('Choose a recording to import');
-    }
-    if (!Array.isArray(request.personIds)) {
-      throw new Error('Choose who is speaking');
-    }
-    const personIds = request.personIds.map((id: unknown, index: number) =>
-      parseEntityId(id, `Person id ${String(index)}`),
-    );
-    await this.assertRecordingConsent(personIds);
-    const recordings: Recording[] = [];
-    const transcripts: Transcript[] = [];
-    for (const candidate of request.paths) {
-      if (typeof candidate !== 'string') {
-        throw new Error('Import path is not allowed');
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      const request = asRecord(value, 'Import');
+      const archive = this.requireArchive();
+      if (!Array.isArray(request.paths) || request.paths.length === 0) {
+        throw new Error('Choose a recording to import');
       }
-      const filePath = path.resolve(candidate);
-      if (!this.allowedImports.has(filePath)) {
-        throw new Error('Import path is not allowed');
+      if (!Array.isArray(request.personIds)) {
+        throw new Error('Choose who is speaking');
       }
-      const imported = await this.importOne(archive, filePath, personIds);
-      recordings.push(...imported.recordings);
-      transcripts.push(...imported.transcripts);
-    }
-    if (recordings.length === 0) {
-      throw new Error('No audio or video to import');
-    }
-    return { recordings, transcripts };
+      const personIds = request.personIds.map((id: unknown, index: number) =>
+        parseEntityId(id, `Person id ${String(index)}`),
+      );
+      await this.assertRecordingConsent(personIds);
+      const recordings: Recording[] = [];
+      const transcripts: Transcript[] = [];
+      for (const candidate of request.paths) {
+        if (typeof candidate !== 'string') {
+          throw new Error('Import path is not allowed');
+        }
+        const filePath = path.resolve(candidate);
+        if (!this.allowedImports.has(filePath)) {
+          throw new Error('Import path is not allowed');
+        }
+        const imported = await this.importOne(archive, filePath, personIds);
+        recordings.push(...imported.recordings);
+        transcripts.push(...imported.transcripts);
+      }
+      if (recordings.length === 0) {
+        throw new Error('No audio or video to import');
+      }
+      return { recordings, transcripts };
+    });
   }
 
   private async importOne(
@@ -569,79 +662,102 @@ export class ArchiveSession {
   }
 
   async saveStory(value: unknown): Promise<Story> {
-    const story = parseStory(value);
-    await this.assertRecordingsExist(story.recordingIds);
-    return this.requireArchive().saveStory(story);
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      const story = parseStory(value);
+      await this.assertRecordingsExist(story.recordingIds);
+      return this.requireArchive().saveStory(story);
+    });
   }
 
   async saveKeepsake(value: unknown): Promise<Keepsake> {
-    return this.requireArchive().saveKeepsake(parseKeepsake(value));
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      return this.requireArchive().saveKeepsake(parseKeepsake(value));
+    });
   }
 
   async attachKeepsakeMedia(value: unknown): Promise<Keepsake> {
-    const request = asRecord(value, 'Keepsake');
-    const archive = this.requireArchive();
-    const keepsakeId = parseEntityId(request.keepsakeId, 'Keepsake id');
-    if (
-      typeof request.sourcePath !== 'string' ||
-      !this.allowedImports.has(path.resolve(request.sourcePath))
-    ) {
-      throw new Error('Import path is not allowed');
-    }
-    const source = path.resolve(request.sourcePath);
-    if (classifyImport(source) !== 'image') {
-      throw new Error('File type is not supported');
-    }
-    const keepsake = (await archive.listKeepsakes()).find((item) => item.id === keepsakeId);
-    if (keepsake === undefined) {
-      throw new Error('Keepsake was not found');
-    }
-    const bytes = new Uint8Array(await readFile(source));
-    const relative = mediaRelativePath(randomUUID(), path.extname(source).toLowerCase());
-    await archive.writeMedia(relative, bytes);
-    return archive.saveKeepsake({ ...keepsake, mediaRelativePath: relative, updatedAt: nowIso() });
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      const request = asRecord(value, 'Keepsake');
+      const archive = this.requireArchive();
+      const keepsakeId = parseEntityId(request.keepsakeId, 'Keepsake id');
+      if (
+        typeof request.sourcePath !== 'string' ||
+        !this.allowedImports.has(path.resolve(request.sourcePath))
+      ) {
+        throw new Error('Import path is not allowed');
+      }
+      const source = path.resolve(request.sourcePath);
+      if (classifyImport(source) !== 'image') {
+        throw new Error('File type is not supported');
+      }
+      const keepsake = (await archive.listKeepsakes()).find((item) => item.id === keepsakeId);
+      if (keepsake === undefined) {
+        throw new Error('Keepsake was not found');
+      }
+      const bytes = new Uint8Array(await readFile(source));
+      const relative = mediaRelativePath(randomUUID(), path.extname(source).toLowerCase());
+      await archive.writeMedia(relative, bytes);
+      return archive.saveKeepsake({
+        ...keepsake,
+        mediaRelativePath: relative,
+        updatedAt: nowIso(),
+      });
+    });
   }
 
   async saveTimelineEvent(value: unknown): Promise<TimelineEvent> {
-    const event = parseTimelineEvent(value);
-    await this.assertRecordingsExist(event.recordingIds);
-    return this.requireArchive().saveTimelineEvent(event);
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      const event = parseTimelineEvent(value);
+      await this.assertRecordingsExist(event.recordingIds);
+      return this.requireArchive().saveTimelineEvent(event);
+    });
   }
 
   async saveRecipe(value: unknown): Promise<Recipe> {
-    const recipe = parseRecipe(value);
-    await this.assertRecordingsExist(recipe.recordingIds);
-    return this.requireArchive().saveRecipe(recipe);
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      const recipe = parseRecipe(value);
+      await this.assertRecordingsExist(recipe.recordingIds);
+      return this.requireArchive().saveRecipe(recipe);
+    });
   }
 
   async sealRecording(value: unknown): Promise<Recording> {
-    const request = asRecord(value, 'Seal');
-    const archive = this.requireArchive();
-    const id = parseEntityId(request.id, 'Recording id');
-    const sealedUntil = requiredText(request.sealedUntil, 'Seal date', 40);
-    if (Number.isNaN(Date.parse(sealedUntil)) || Date.parse(sealedUntil) <= Date.now()) {
-      throw new Error('Choose a future date');
-    }
-    const existing = (await archive.listRecordings()).find((item) => item.id === id);
-    if (existing === undefined) {
-      throw new Error('Recording was not found');
-    }
-    if (
-      existing.sealedUntil !== undefined &&
-      Date.parse(sealedUntil) < Date.parse(existing.sealedUntil)
-    ) {
-      throw new Error('A sealed recording cannot be opened early');
-    }
-    const recording: Recording = {
-      ...existing,
-      sealedUntil,
-      updatedAt: nowIso(),
-    };
-    const occasion = typeof request.occasion === 'string' ? request.occasion.trim() : '';
-    if (occasion !== '') {
-      recording.occasion = occasion.slice(0, 200);
-    }
-    return archive.saveRecording(recording);
+    return this.mutate(async () => {
+      this.requireWritableArchive();
+      this.assistance.invalidate();
+      const request = asRecord(value, 'Seal');
+      const archive = this.requireArchive();
+      const id = parseEntityId(request.id, 'Recording id');
+      const sealedUntil = requiredText(request.sealedUntil, 'Seal date', 40);
+      if (Number.isNaN(Date.parse(sealedUntil)) || Date.parse(sealedUntil) <= Date.now()) {
+        throw new Error('Choose a future date');
+      }
+      const existing = (await archive.listRecordings()).find((item) => item.id === id);
+      if (existing === undefined) {
+        throw new Error('Recording was not found');
+      }
+      if (
+        existing.sealedUntil !== undefined &&
+        Date.parse(sealedUntil) < Date.parse(existing.sealedUntil)
+      ) {
+        throw new Error('A sealed recording cannot be opened early');
+      }
+      const recording: Recording = {
+        ...existing,
+        sealedUntil,
+        updatedAt: nowIso(),
+      };
+      const occasion = typeof request.occasion === 'string' ? request.occasion.trim() : '';
+      if (occasion !== '') {
+        recording.occasion = occasion.slice(0, 200);
+      }
+      return archive.saveRecording(recording);
+    });
   }
 
   async ask(value: unknown): Promise<AskResponse> {
@@ -699,10 +815,12 @@ export class ArchiveSession {
   }
 
   async saveSecret(account: string, secret: string): Promise<void> {
+    this.assistance.invalidate();
     await this.secrets.set(account, secret);
   }
 
   async deleteSecret(account: string): Promise<void> {
+    this.assistance.invalidate();
     await this.secrets.delete(account);
   }
 
@@ -738,6 +856,22 @@ export class ArchiveSession {
       voiceInstalled: voiceEngine.installed,
       runsLocally: speechEngine.runsLocally,
     };
+  }
+
+  getOpenRouterConfig() {
+    return this.assistance.getConfig();
+  }
+
+  saveOpenRouterConfig(value: unknown) {
+    return this.assistance.saveConfig(value);
+  }
+
+  prepareLlm(value: unknown) {
+    return this.assistance.prepare(value);
+  }
+
+  runLlm(value: unknown) {
+    return this.assistance.run(value);
   }
 
   private async corpus(personId: string | undefined) {

@@ -1,11 +1,12 @@
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { app, BrowserWindow, session as electronSession } from 'electron';
+import { app, BrowserWindow, safeStorage, session as electronSession } from 'electron';
 import { DEFAULT_ARCHIVE_DIRNAME } from '@kinlore/storage';
 import { ArchiveSession } from './archive-session.js';
 import { isAppFrameUrl } from './ipc-guard.js';
 import { handleMediaProtocol, registerMediaScheme } from './media-protocol.js';
 import { registerIpc } from './register-ipc.js';
+import { createSecretProtection } from './secret-protection.js';
 
 registerMediaScheme();
 
@@ -55,8 +56,17 @@ function createWindow(): void {
 
 app.setName('Kinlore');
 
-void app.whenReady().then(() => {
-  const archiveSession = new ArchiveSession(path.join(app.getPath('userData'), 'secrets.json'));
+void app.whenReady().then(async () => {
+  const archiveSession = new ArchiveSession(
+    path.join(app.getPath('userData'), 'secrets.json'),
+    createSecretProtection(safeStorage),
+  );
+  try {
+    await archiveSession.initializeSecretProtection();
+  } catch {
+    // A locked/unavailable OS key store must not block offline archives. Settings
+    // retries and surfaces the safe protection error; no credential is returned.
+  }
   archiveSession.allowRoot(defaultArchivePath());
   registerIpc({ session: archiveSession, appUrl, defaultArchivePath });
   handleMediaProtocol(archiveSession);

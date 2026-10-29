@@ -1,4 +1,5 @@
 import type { PreferredLanguage } from '@kinlore/core';
+import { UX_COPY, type UxKey } from './ux-copy.js';
 
 const STRINGS = {
   en: {
@@ -33,7 +34,7 @@ const STRINGS = {
     wordsLabel: 'Words they said',
     saveWords: 'Keep this answer',
     importHelp:
-      'Add a voice note, a home video, a WhatsApp export zip, or a photo. A subtitle file with the same name is kept as their words.',
+      'Add a voice note, a home video, a WhatsApp export zip. A subtitle file with the same name is kept as their words.',
     askPrompt: 'Ask about something they talked about',
     familyPrompt: 'Ask everyone who has a recording',
     storyHint: 'A story cites a recording. It does not replace it.',
@@ -110,7 +111,7 @@ const STRINGS = {
     askPrompt: 'వాళ్లు మాట్లాడిన దాని గురించి అడగండి',
     familyPrompt: 'రికార్డింగ్ ఉన్న ప్రతి ఒక్కరినీ అడగండి',
     storyHint: 'కథ ఒక రికార్డింగ్‌ను చూపిస్తుంది. దాని స్థానం తీసుకోదు.',
-    keepsakeHint: 'ఒకరికి ముడిపడిన వస్తువు, నోట్ లేదా ఫోటో.',
+    keepsakeHint: 'ఒకరికి ముడిపడిన వస్తువు, నోట్ .',
     timelineHint: 'కుటుంబం గుర్తుంచుకోవాలనుకునే తేదీ. రికార్డింగ్ ఉంటే దానికి కలపండి.',
     navHome: 'ఇల్లు',
     navPeople: 'వ్యక్తులు',
@@ -178,11 +179,11 @@ const STRINGS = {
     wordsLabel: 'उनके शब्द',
     saveWords: 'यह उत्तर रखें',
     importHelp:
-      'वॉइस नोट, होम वीडियो, WhatsApp ज़िप, या फ़ोटो जोड़ें. उसी नाम की सबटाइटल फ़ाइल उनके शब्द बनती है.',
+      'वॉइस नोट, होम वीडियो, WhatsApp ज़िप जोड़ें. उसी नाम की सबटाइटल फ़ाइल उनके शब्द बनती है.',
     askPrompt: 'उस बारे में पूछें जिस पर उन्होंने बात की',
     familyPrompt: 'जिसकी रिकॉर्डिंग है, उन सबसे पूछें',
     storyHint: 'कहानी एक रिकॉर्डिंग का हवाला देती है. उसकी जगह नहीं लेती.',
-    keepsakeHint: 'किसी से जुड़ी चीज़, नोट, या फ़ोटो.',
+    keepsakeHint: 'किसी से जुड़ी चीज़, नोट.',
     timelineHint: 'एक तारीख जिसे परिवार याद रखना चाहता है. रिकॉर्डिंग हो तो जोड़ें.',
     navHome: 'घर',
     navPeople: 'लोग',
@@ -254,7 +255,7 @@ const STRINGS = {
     wordsLabel: 'அவர்கள் சொன்ன சொற்கள்',
     saveWords: 'இந்த பதிலை வை',
     importHelp:
-      'குரல் குறிப்பு, வீட்டு வீடியோ, WhatsApp ஜிப் அல்லது புகைப்படத்தைச் சேர்க்கவும். அதே பெயரில் உள்ள வசனக் கோப்பு அவர்களின் சொற்களாகும்.',
+      'குரல் குறிப்பு, வீட்டு வீடியோ, WhatsApp ஜிப் கோப்பைச் சேர்க்கவும். அதே பெயரில் உள்ள வசனக் கோப்பு அவர்களின் சொற்களாகும்.',
     askPrompt: 'அவர்கள் பேசியதைப் பற்றிக் கேளுங்கள்',
     familyPrompt: 'பதிவு உள்ள ஒவ்வொருவரிடமும் கேளுங்கள்',
     storyHint: 'கதை ஒரு பதிவைச் சுட்டுகிறது. அதன் இடத்தை எடுக்காது.',
@@ -298,8 +299,9 @@ const STRINGS = {
   },
 } as const;
 
-export type CopyKey = keyof typeof STRINGS.en;
+export type CopyKey = keyof typeof STRINGS.en | UxKey;
 
 export function translate(language: PreferredLanguage, key: CopyKey): string {
-  return STRINGS[language][key];
+  if (key in UX_COPY.en) return UX_COPY[language][key as UxKey];
+  return STRINGS[language][key as keyof typeof STRINGS.en];
 }

@@ -30,7 +30,7 @@ the family's computer. No account, server, or subscription.
 - Record interviews, import recordings, and answer from real clips
 - Keepsakes, a spoken cookbook, a timeline, and sealed recordings
 - English, Telugu, Hindi, and Tamil questions
-- Opt-in encryption with a recovery key; no network calls by default
+- Encrypted local desktop archives with a passphrase and recovery key; no network calls by default
 - Quality gates (lint, format, typecheck, test, build) that pass in CI
 - Staging and production releases that publish installer assets
 
@@ -38,7 +38,7 @@ the family's computer. No account, server, or subscription.
 
 - Cloud accounts, Kinlore-hosted models, subscriptions, or analytics
 - Bundling speech or voice model weights
-- Sending audio or questions to an API in this build
+- Audio uploads or automatic remote requests; optional OpenRouter text assistance requires per-request review and approval
 - Generated voice audio (the control stays off until a consented local model exists)
 
 ## Principles (rank-ordered: when they conflict, the higher one wins)
@@ -57,16 +57,26 @@ the family's computer. No account, server, or subscription.
 
 ## Decisions log
 
-| Date       | Decision                     | Why                                                                 | Alternatives rejected     |
-| ---------- | ---------------------------- | ------------------------------------------------------------------- | ------------------------- |
-| 2026-10-25 | Electron + TypeScript + Node | Matches the current product brief; one language across main and UI  | Tauri/Python (old README) |
-| 2026-10-25 | JSON files + media folder    | Open and portable; no native SQLite binding yet                     | SQLite now                |
-| 2026-10-26 | Local product, engines empty | Ship the archive experience without inventing speech or calling out | Bundled ASR, remote APIs  |
-| 2026-10-26 | Passphrase + recovery key    | Opt-in encryption outside `LocalJsonStorage`                        | Encrypting by default     |
-| 2026-10-25 | npm workspaces               | Template had no pnpm lockfile; brief allows npm                     | pnpm, yarn                |
+| Date       | Decision                                  | Why                                                                                   | Alternatives rejected              |
+| ---------- | ----------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
+| 2026-10-25 | Electron + TypeScript + Node              | Matches the current product brief; one language across main and UI                    | Tauri/Python (old README)          |
+| 2026-10-25 | JSON files + media folder                 | Open and portable; no native SQLite binding yet                                       | SQLite now                         |
+| 2026-10-29 | Optional OpenRouter text via native fetch | User-approved BYO key/model, exact preview, per-request approval; local defaults stay | SDK dependency, automatic requests |
+| 2026-10-26 | Local product, engines empty              | Ship the archive experience without inventing speech or calling out                   | Bundled ASR, remote APIs           |
+| 2026-10-26 | Passphrase + recovery key                 | Opt-in encryption outside `LocalJsonStorage`                                          | Encrypting by default              |
+| 2026-10-25 | npm workspaces                            | Template had no pnpm lockfile; brief allows npm                                       | pnpm, yarn                         |
 
 ## How agents use this
 
 - **Planner:** flag any request that conflicts with a non-goal, principle or constraint before planning it.
 - **Reviewer:** a change that violates a principle or constraint is a **major** finding.
 - **Anyone:** when a new decision is made in a conversation, propose a row for the decisions log.
+
+## 2026-10-29 approved direction
+
+New desktop archives are encrypted before the first family write; existing
+plaintext archives are read-only until migrated with a passphrase and recovery
+key. API credentials use OS-backed encryption outside the archive. Postgres,
+login, and hosted storage are deferred. The user chose a sky-blue/white theme
+with black text and optional OpenRouter interview questions tailored to an
+editable persona. Persona context is previewed and approved before sending.

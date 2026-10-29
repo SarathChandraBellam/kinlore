@@ -29,7 +29,11 @@ so reviewers apply it with judgment rather than blindly.
 
 ## Banned patterns
 
-- Network calls, analytics, accounts, or uploads of archive contents.
+- Automatic network calls, analytics, accounts, background uploads, or audio uploads.
+- Remote text outside the explicitly reviewed OpenRouter flow: require a one-use
+  approval, exact text/model/destination preview, and export consent from every
+  participant. Sealed or unrelated transcript text must never be sent.
+- Model-generated quotes/transcripts or automatic acceptance of AI drafts.
 - Implementing encryption inside `LocalJsonStorage` instead of `EncryptionProvider`.
 - `any`, unchecked indexed access, or deep workspace imports.
 - Committing `KinloreArchive/`, `.env`, keys, or real family media.

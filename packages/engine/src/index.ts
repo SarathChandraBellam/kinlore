@@ -1,6 +1,6 @@
 /**
- * Swappable local engines. This build ships no model weights and performs no
- * network calls. A future engine can implement these interfaces.
+ * Speech and voice seams ship no model weights. Optional text assistance uses
+ * the separate OpenRouter client after main-process approval.
  */
 export interface SpeechEngine {
   readonly id: string;
@@ -37,3 +37,6 @@ export class NoVoiceEngine implements VoiceEngine {
     );
   }
 }
+
+export { OpenRouterClient } from './openrouter.js';
+export type { LlmMessage, OpenRouterRequest } from './openrouter.js';

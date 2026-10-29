@@ -2,8 +2,8 @@ import type { LocalJsonArchive } from './local-json-archive.js';
 import { createArchiveKeys } from './passphrase-encryption.js';
 
 /**
- * Rewrites a plaintext archive with an encryption codec. Copies the folder
- * first: a failure halfway through leaves mixed files, and the encrypted flag
+ * Rewrites a plaintext archive with an encryption codec. The caller must copy
+ * the folder first: a failure halfway through leaves mixed files, and the encrypted flag
  * is written only after every entity and media file has been sealed.
  */
 export async function encryptExistingArchive(
@@ -25,6 +25,9 @@ export async function encryptExistingArchive(
   const recipes = await archive.listRecipes();
   const media = await archive.listMediaFiles();
   const created = await createArchiveKeys(passphrase);
+  // Persist wrapped keys before any destructive rewrite. A failed migration may
+  // still need its backup, but already-encrypted files must remain decryptable.
+  await archive.writeEncryptionEnvelope(created.envelope);
   archive.useCodec(created.encryption);
   for (const person of people) {
     await archive.savePerson(person);
@@ -56,7 +59,6 @@ export async function encryptExistingArchive(
   for (const file of media) {
     await archive.writeMedia(file.relativePath, file.bytes);
   }
-  await archive.writeEncryptionEnvelope(created.envelope);
   await archive.markEncrypted();
   return { recoveryKey: created.recoveryKey };
 }

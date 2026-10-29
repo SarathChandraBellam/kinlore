@@ -36,13 +36,20 @@ export function registerIpc(options: {
     return session.allowRoot(first);
   });
 
-  ipcMain.handle(IPC.archiveCreate, async (event, rootPath: unknown) => {
-    assertTrustedSender(event);
-    if (typeof rootPath !== 'string') {
-      throw new Error('Archive path is required');
-    }
-    return session.createArchive(rootPath);
-  });
+  ipcMain.handle(
+    IPC.archiveCreate,
+    async (event, rootPath: unknown, passphrase: unknown, replaceExisting: unknown) => {
+      assertTrustedSender(event);
+      if (typeof rootPath !== 'string') {
+        throw new Error('Archive path is required');
+      }
+      if (typeof passphrase !== 'string')
+        throw new Error('A passphrase is required for a new archive');
+      if (replaceExisting !== undefined && typeof replaceExisting !== 'boolean')
+        throw new Error('Archive replacement choice is invalid');
+      return session.createArchive(rootPath, passphrase, replaceExisting === true);
+    },
+  );
 
   ipcMain.handle(IPC.archiveOpen, async (event, rootPath: unknown) => {
     assertTrustedSender(event);
@@ -50,6 +57,12 @@ export function registerIpc(options: {
       throw new Error('Archive path is required');
     }
     return session.openArchive(rootPath);
+  });
+
+  ipcMain.handle(IPC.archiveInspect, (event, rootPath: unknown) => {
+    assertTrustedSender(event);
+    if (typeof rootPath !== 'string') throw new Error('Archive path is required');
+    return session.inspectArchive(rootPath);
   });
 
   ipcMain.handle(IPC.archiveStatus, (event) => {
@@ -275,5 +288,25 @@ export function registerIpc(options: {
   ipcMain.handle(IPC.engineStatus, (event) => {
     assertTrustedSender(event);
     return session.engineStatus();
+  });
+
+  ipcMain.handle(IPC.openRouterConfig, (event) => {
+    assertTrustedSender(event);
+    return session.getOpenRouterConfig();
+  });
+
+  ipcMain.handle(IPC.openRouterSaveConfig, (event, input: unknown) => {
+    assertTrustedSender(event);
+    return session.saveOpenRouterConfig(input);
+  });
+
+  ipcMain.handle(IPC.llmPrepare, (event, request: unknown) => {
+    assertTrustedSender(event);
+    return session.prepareLlm(request);
+  });
+
+  ipcMain.handle(IPC.llmRun, (event, approval: unknown) => {
+    assertTrustedSender(event);
+    return session.runLlm(approval);
   });
 }
