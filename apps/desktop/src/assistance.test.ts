@@ -457,15 +457,28 @@ describe('optional assistance', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
   it.each([
-    {task:'story',fields:{title:'Meal',summary:'x'.repeat(4001)}},
-    {task:'timeline',fields:{title:'Meal',notes:'x'.repeat(4001)}},
-    {task:'recipe',fields:{title:'Meal',ingredients:Array.from({length:81},()=> 'rice'),steps:['Cook.']}},
-    {task:'recipe',fields:{title:'Meal',ingredients:['rice'],steps:['x'.repeat(501)]}},
-  ] as const)('rejects a $task draft that cannot fit the archive save parser',async({task,fields})=>{
-    const {session,saved,fetcher}=await fixture();
-    const preview=await session.prepareLlm({task,language:'en',recordingIds:[saved.recording.id]});
-    fetcher.mockResolvedValue(response({...fields,recordingIds:[saved.recording.id]}));
-    await expect(session.runLlm({token:preview.token,approved:true})).rejects.toThrow();
-  });
-
+    { task: 'story', fields: { title: 'Meal', summary: 'x'.repeat(4001) } },
+    { task: 'timeline', fields: { title: 'Meal', notes: 'x'.repeat(4001) } },
+    {
+      task: 'recipe',
+      fields: {
+        title: 'Meal',
+        ingredients: Array.from({ length: 81 }, () => 'rice'),
+        steps: ['Cook.'],
+      },
+    },
+    { task: 'recipe', fields: { title: 'Meal', ingredients: ['rice'], steps: ['x'.repeat(501)] } },
+  ] as const)(
+    'rejects a $task draft that cannot fit the archive save parser',
+    async ({ task, fields }) => {
+      const { session, saved, fetcher } = await fixture();
+      const preview = await session.prepareLlm({
+        task,
+        language: 'en',
+        recordingIds: [saved.recording.id],
+      });
+      fetcher.mockResolvedValue(response({ ...fields, recordingIds: [saved.recording.id] }));
+      await expect(session.runLlm({ token: preview.token, approved: true })).rejects.toThrow();
+    },
+  );
 });

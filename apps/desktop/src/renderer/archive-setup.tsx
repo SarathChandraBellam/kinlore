@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import type { EncryptedArchiveResult } from '@kinlore/ipc-contract';
 import { invocationMessage } from './archive-flow.js';
+import { CopyButton } from './components/CopyButton.js';
+import { Icon } from './components/Icons.js';
+import { StatusBanner } from './components/StatusBanner.js';
 import type { CopyKey } from './i18n.js';
 
 export function ArchiveSetup(props: {
@@ -14,14 +17,23 @@ export function ArchiveSetup(props: {
   const [confirm, setConfirm] = useState('');
   const [recovery, setRecovery] = useState<string>();
   const [backupPath, setBackupPath] = useState<string>();
+  const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const [error, setError] = useState<string>();
+
   useEffect(() => {
     const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
+    if (element !== null && typeof element.showModal === 'function' && !element.open) {
+      element.showModal();
+    }
+    return () => {
+      if (element !== null && typeof element.close === 'function' && element.open) {
+        element.close();
+      }
+    };
   }, []);
+
   async function create(): Promise<void> {
     if (inFlight.current) return;
     if (passphrase !== confirm) {
@@ -35,6 +47,7 @@ export function ArchiveSetup(props: {
       const result = await props.onCreate(passphrase);
       setPassphrase('');
       setConfirm('');
+      setAcknowledged(false);
       setRecovery(result.recoveryKey);
       setBackupPath(result.backupPath);
     } catch (caught) {
@@ -44,6 +57,7 @@ export function ArchiveSetup(props: {
       setBusy(false);
     }
   }
+
   return (
     <dialog
       ref={dialog}
@@ -54,10 +68,17 @@ export function ArchiveSetup(props: {
         if (!busy && recovery === undefined) props.onClose(false);
       }}
     >
-      <p className="eyebrow">Kinlore · {props.t('encryptedLabel')}</p>
-      <h2 id="archive-dialog-title">
-        {props.t(recovery === undefined ? 'protectArchive' : 'recoveryTitle')}
-      </h2>
+      <div className="dialog-header">
+        <span className="dialog-badge">
+          <Icon name="shield" size={20} />
+        </span>
+        <div>
+          <p className="eyebrow">Kinlore · {props.t('encryptedLabel')}</p>
+          <h2 id="archive-dialog-title">
+            {props.t(recovery === undefined ? 'protectArchive' : 'recoveryTitle')}
+          </h2>
+        </div>
+      </div>
       {recovery === undefined ? (
         <>
           <p className="muted">{props.t(props.replacing ? 'replaceHelp' : 'protectHelp')}</p>
@@ -89,9 +110,10 @@ export function ArchiveSetup(props: {
                 value={confirm}
                 onChange={(event) => setConfirm(event.target.value)}
               />
-              <p className="muted">{props.t('passphraseHelp')}</p>
-              <div className="actions">
+              <p className="muted field-help">{props.t('passphraseHelp')}</p>
+              <div className="actions dialog-actions">
                 <button type="submit">
+                  <Icon name="lock" size={16} />
                   {props.t(
                     busy ? 'working' : props.replacing ? 'replaceArchive' : 'createEncrypted',
                   )}
@@ -104,25 +126,39 @@ export function ArchiveSetup(props: {
           </form>
         </>
       ) : (
-        <>
+        <div className="recovery-step">
           <p>{props.t('recovery')}</p>
           {backupPath !== undefined ? (
-            <>
-              <p>{props.t('backupSaved')}</p>
+            <div className="path-card">
+              <p className="muted">{props.t('backupSaved')}</p>
               <p className="archive-path">{backupPath}</p>
-            </>
+            </div>
           ) : null}
-          <p className="recovery">{recovery}</p>
-          <button type="button" onClick={() => props.onClose(true)}>
-            {props.t('savedKey')}
-          </button>
-        </>
+          <div className="recovery-box">
+            <p className="recovery">{recovery}</p>
+            <CopyButton
+              text={recovery}
+              label={props.t('copyKey')}
+              copiedLabel={props.t('copied')}
+            />
+          </div>
+          <label className="check-row acknowledge-row">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(event) => setAcknowledged(event.target.checked)}
+            />
+            <span>{props.t('acknowledgeRecoveryKey')}</span>
+          </label>
+          <div className="actions dialog-actions">
+            <button type="button" disabled={!acknowledged} onClick={() => props.onClose(true)}>
+              <Icon name="check" size={16} />
+              {props.t('savedKey')}
+            </button>
+          </div>
+        </div>
       )}
-      {error !== undefined ? (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error !== undefined ? <StatusBanner tone="error" message={error} /> : null}
     </dialog>
   );
 }

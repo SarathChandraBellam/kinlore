@@ -50,4 +50,12 @@ describe('Home archive discovery and choices', () => {
   });
 });
 
-it('shows the useful error without Electron invocation boilerplate',()=>{expect(invocationMessage(new Error("Error invoking remote method 'kinlore:archive:create': Error: An archive already exists"))).toBe('An archive already exists');});
+it('shows the useful error without Electron invocation boilerplate', () => {
+  expect(
+    invocationMessage(
+      new Error(
+        "Error invoking remote method 'kinlore:archive:create': Error: An archive already exists",
+      ),
+    ),
+  ).toBe('An archive already exists');
+});

@@ -8,9 +8,12 @@ import type {
   OpenRouterConfig,
 } from '@kinlore/ipc-contract';
 import { invocationMessage } from './archive-flow.js';
+import { Icon } from './components/Icons.js';
+import { StatusBanner } from './components/StatusBanner.js';
 import type { CopyKey } from './i18n.js';
 
 type Translate = (key: CopyKey) => string;
+
 function message(error: unknown): string {
   return invocationMessage(error);
 }
@@ -33,29 +36,32 @@ export function SourcePicker(props: {
   return (
     <details className="source-picker">
       <summary>
-        {props.t('chooseSources')} <span className="count">{props.value.length}</span>
+        <span>{props.t('chooseSources')}</span>
+        <span className="count">{props.value.length}</span>
       </summary>
       <p className="muted">{props.t('sourcesHelp')}</p>
       {recordings.length === 0 ? (
         <p className="muted">{props.t('noSources')}</p>
       ) : (
-        recordings.map((recording) => (
-          <label className="check-row" key={recording.id}>
-            <input
-              type="checkbox"
-              checked={props.value.includes(recording.id)}
-              disabled={!props.value.includes(recording.id) && props.value.length >= 8}
-              onChange={(event) =>
-                props.onChange(
-                  event.target.checked
-                    ? [...props.value, recording.id]
-                    : props.value.filter((id) => id !== recording.id),
-                )
-              }
-            />
-            <span>{recording.title}</span>
-          </label>
-        ))
+        <div className="source-list">
+          {recordings.map((recording) => (
+            <label className="check-row" key={recording.id}>
+              <input
+                type="checkbox"
+                checked={props.value.includes(recording.id)}
+                disabled={!props.value.includes(recording.id) && props.value.length >= 8}
+                onChange={(event) =>
+                  props.onChange(
+                    event.target.checked
+                      ? [...props.value, recording.id]
+                      : props.value.filter((id) => id !== recording.id),
+                  )
+                }
+              />
+              <span>{recording.title}</span>
+            </label>
+          ))}
+        </div>
       )}
     </details>
   );
@@ -77,15 +83,18 @@ export function LlmAssist(props: {
   const active = useRef(true);
   const inFlight = useRef(false);
   const previewHeading = useRef<HTMLHeadingElement>(null);
+
   useEffect(() => {
     active.current = true;
     return () => {
       active.current = false;
     };
   }, []);
+
   useEffect(() => {
     if (preview !== undefined) previewHeading.current?.focus();
   }, [preview]);
+
   async function perform(work: () => Promise<void>): Promise<void> {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -100,11 +109,14 @@ export function LlmAssist(props: {
       if (active.current) setBusy(false);
     }
   }
+
   const draft = result !== undefined && 'draft' in result ? result.draft : undefined;
+
   return (
     <div className="ai-assist">
       <div className="ai-label">
-        <span aria-hidden="true">✧</span> {props.t('optionalAi')}
+        <Icon name="sparkle" size={16} />
+        <span>{props.t('optionalAi')}</span>
       </div>
       <p className="muted">{props.t('aiHelp')}</p>
       {preview === undefined ? (
@@ -121,6 +133,7 @@ export function LlmAssist(props: {
             })
           }
         >
+          <Icon name="sparkle" size={15} />
           {busy ? props.t('working') : props.t('previewRequest')}
         </button>
       ) : (
@@ -129,11 +142,15 @@ export function LlmAssist(props: {
             {props.t('reviewRequest')}
           </h3>
           <p className="muted">{props.t('destinationHelp')}</p>
-          <dl>
-            <dt>{props.t('modelLabel')}</dt>
-            <dd>{preview.model}</dd>
-            <dt>{props.t('destination')}</dt>
-            <dd>{preview.destination}</dd>
+          <dl className="meta-dl">
+            <div>
+              <dt>{props.t('modelLabel')}</dt>
+              <dd>{preview.model}</dd>
+            </div>
+            <div>
+              <dt>{props.t('destination')}</dt>
+              <dd>{preview.destination}</dd>
+            </div>
           </dl>
           <label htmlFor="outbound-text">{props.t('exactText')}</label>
           <textarea
@@ -141,7 +158,7 @@ export function LlmAssist(props: {
             className="outbound-text"
             readOnly
             value={preview.text}
-            rows={12}
+            rows={10}
           />
           <div className="actions">
             <button
@@ -172,32 +189,30 @@ export function LlmAssist(props: {
         </section>
       )}
       {busy ? (
-        <p role="status" className="muted">
+        <p role="status" className="muted field-help">
           {props.t('working')}
         </p>
       ) : null}
-      {error !== undefined ? (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      ) : null}
+      {error !== undefined ? <StatusBanner tone="error" message={error} /> : null}
       {draft !== undefined ? (
         <article className="draft-card">
           <p className="eyebrow">{props.t('draftLabel')}</p>
           <h3>{draft.title}</h3>
           {'summary' in draft ? <p>{draft.summary}</p> : null}
           {'notes' in draft ? <p>{draft.notes}</p> : null}
-          {'occurredOn' in draft ? <p>{draft.occurredOn}</p> : null}
+          {'occurredOn' in draft && draft.occurredOn !== undefined ? (
+            <p className="pill-badge">{draft.occurredOn}</p>
+          ) : null}
           {'ingredients' in draft ? (
             <>
               <ul>
-                {draft.ingredients.map((item, i) => (
-                  <li key={i}>{item}</li>
+                {draft.ingredients.map((item, index) => (
+                  <li key={`${index}-${item}`}>{item}</li>
                 ))}
               </ul>
               <ol>
-                {draft.steps.map((item, i) => (
-                  <li key={i}>{item}</li>
+                {draft.steps.map((item, index) => (
+                  <li key={`${index}-${item}`}>{item}</li>
                 ))}
               </ol>
             </>
@@ -211,21 +226,24 @@ export function LlmAssist(props: {
               )
               .join(', ')}
           </p>
-          <p>{props.t('draftHelp')}</p>
-          <button
-            type="button"
-            className="secondary"
-            disabled={applied}
-            onClick={() => {
-              if (result !== undefined) {
-                props.onResult(result);
-                setApplied(true);
-              }
-            }}
-          >
-            {props.t('applyDraft')}
-          </button>
-          {applied ? <p role="status">{props.t('draftApplied')}</p> : null}
+          <p className="muted">{props.t('draftHelp')}</p>
+          <div className="actions">
+            <button
+              type="button"
+              className="secondary"
+              disabled={applied}
+              onClick={() => {
+                if (result !== undefined) {
+                  props.onResult(result);
+                  setApplied(true);
+                }
+              }}
+            >
+              <Icon name="check" size={15} />
+              {props.t('applyDraft')}
+            </button>
+          </div>
+          {applied ? <StatusBanner tone="success" message={props.t('draftApplied')} /> : null}
         </article>
       ) : null}
     </div>
@@ -241,6 +259,7 @@ export function OpenRouterSettings(props: { t: Translate }): JSX.Element {
   const [saved, setSaved] = useState(false);
   const inFlight = useRef(false);
   const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     let active = true;
     setError(undefined);
@@ -259,6 +278,7 @@ export function OpenRouterSettings(props: { t: Translate }): JSX.Element {
       active = false;
     };
   }, [attempt]);
+
   async function save(removeKey = false): Promise<void> {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -281,12 +301,20 @@ export function OpenRouterSettings(props: { t: Translate }): JSX.Element {
       setBusy(false);
     }
   }
+
   return (
-    <section className="panel">
-      <p className="eyebrow">{props.t('optionalAi')}</p>
-      <h2>OpenRouter</h2>
+    <section className="panel settings-card">
+      <div className="panel-header-row">
+        <div>
+          <p className="eyebrow">{props.t('optionalAi')}</p>
+          <h3>OpenRouter</h3>
+        </div>
+        <span className={config?.keyStored ? 'status-pill tone-success' : 'status-pill tone-muted'}>
+          {props.t(config?.keyStored ? 'keySaved' : 'keyMissing')}
+        </span>
+      </div>
       <p className="muted">{props.t('aiHelp')}</p>
-      <p>{props.t('secretFile')}</p>
+      <p className="muted">{props.t('secretFile')}</p>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -307,7 +335,7 @@ export function OpenRouterSettings(props: { t: Translate }): JSX.Element {
             maxLength={200}
             aria-describedby="model-help"
           />
-          <p id="model-help" className="muted">
+          <p id="model-help" className="muted field-help">
             {props.t('modelHelp')}
           </p>
           <label htmlFor="openrouter-key">{props.t('keyLabel')}</label>
@@ -324,7 +352,6 @@ export function OpenRouterSettings(props: { t: Translate }): JSX.Element {
             }}
             placeholder={config?.keyStored ? '••••••••' : ''}
           />
-          <p className="key-status">{props.t(config?.keyStored ? 'keySaved' : 'keyMissing')}</p>
           <div className="actions">
             <button type="submit">{busy ? props.t('working') : props.t('save')}</button>
             {config?.keyStored ? (
@@ -336,24 +363,15 @@ export function OpenRouterSettings(props: { t: Translate }): JSX.Element {
         </fieldset>
       </form>
       {error !== undefined ? (
-        <div role="alert">
-          <p className="error">{error}</p>
-          {config === undefined ? (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => setAttempt((value) => value + 1)}
-            >
-              {props.t('retry')}
-            </button>
-          ) : null}
-        </div>
+        <StatusBanner
+          tone="error"
+          message={error}
+          {...(config === undefined
+            ? { actionLabel: props.t('retry'), onAction: () => setAttempt((value) => value + 1) }
+            : {})}
+        />
       ) : null}
-      {saved ? (
-        <p className="notice" role="status">
-          {props.t('settingsSaved')}
-        </p>
-      ) : null}
+      {saved ? <StatusBanner tone="success" message={props.t('settingsSaved')} /> : null}
     </section>
   );
 }
