@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
-import type { CopyKey } from './i18n.js';
 import { invocationMessage } from './archive-flow.js';
+import { Icon } from './components/Icons.js';
+import { StatusBanner } from './components/StatusBanner.js';
+import type { CopyKey } from './i18n.js';
 
 export function ExistingArchive(props: {
   rootPath: string;
@@ -13,11 +15,19 @@ export function ExistingArchive(props: {
   const dialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+
   useEffect(() => {
     const node = dialog.current;
-    node?.showModal();
-    return () => node?.close();
+    if (node !== null && typeof node.showModal === 'function' && !node.open) {
+      node.showModal();
+    }
+    return () => {
+      if (node !== null && typeof node.close === 'function' && node.open) {
+        node.close();
+      }
+    };
   }, []);
+
   return (
     <dialog
       ref={dialog}
@@ -28,10 +38,19 @@ export function ExistingArchive(props: {
         if (!busy) props.onClose();
       }}
     >
-      <p className="eyebrow">Kinlore</p>
-      <h2 id="existing-title">{props.t('existingTitle')}</h2>
+      <div className="dialog-header">
+        <span className="dialog-badge">
+          <Icon name="folder" size={20} />
+        </span>
+        <div>
+          <p className="eyebrow">Kinlore</p>
+          <h2 id="existing-title">{props.t('existingTitle')}</h2>
+        </div>
+      </div>
       <p>{props.t('existingHelp')}</p>
-      <p className="archive-path">{props.rootPath}</p>
+      <div className="path-card">
+        <p className="archive-path">{props.rootPath}</p>
+      </div>
       <fieldset disabled={busy}>
         <div className="existing-actions">
           <button
@@ -47,12 +66,13 @@ export function ExistingArchive(props: {
               });
             }}
           >
+            <Icon name="folder" size={16} />
             {props.t(busy ? 'working' : 'openArchive')}
           </button>
           <button type="button" className="secondary" onClick={props.onChoose}>
             {props.t('chooseFolder')}
           </button>
-          <button type="button" className="secondary" onClick={props.onReplace}>
+          <button type="button" className="secondary danger-outline" onClick={props.onReplace}>
             {props.t('replaceArchive')}
           </button>
           <button type="button" className="text-button" onClick={props.onClose}>
@@ -60,12 +80,8 @@ export function ExistingArchive(props: {
           </button>
         </div>
       </fieldset>
-      <p className="muted">{props.t('replaceHelp')}</p>
-      {error !== undefined ? (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      <p className="muted field-help">{props.t('replaceHelp')}</p>
+      {error !== undefined ? <StatusBanner tone="error" message={error} /> : null}
     </dialog>
   );
 }

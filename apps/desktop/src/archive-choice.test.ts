@@ -1,11 +1,12 @@
 import { mkdtemp, readFile, readdir, rm, rename } from 'node:fs/promises';
+import type * as FsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArchiveSession } from './archive-session.js';
 
 vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  const actual = await importOriginal<typeof FsPromises>();
   return { ...actual, rename: vi.fn(actual.rename) };
 });
 const cleanup: string[] = [];
@@ -59,7 +60,7 @@ describe('existing archive choices', () => {
     const { session, root, parent } = await fixture();
     await session.createArchive(root, phrase);
     const before = await readFile(path.join(root, 'encryption.json'));
-    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+    const actual = await vi.importActual<typeof FsPromises>('node:fs/promises');
     vi.mocked(rename).mockImplementation(async (from, to) => {
       if (path.basename(String(from)).startsWith('archive.new-') && String(to) === root)
         throw new Error('Synthetic swap failure');

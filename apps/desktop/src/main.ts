@@ -8,9 +8,8 @@ import { handleMediaProtocol, registerMediaScheme } from './media-protocol.js';
 import { registerIpc } from './register-ipc.js';
 import { createSecretProtection } from './secret-protection.js';
 
-registerMediaScheme();
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let mainWindow: BrowserWindow | undefined;
 
 function defaultArchivePath(): string {
   return path.join(app.getPath('userData'), DEFAULT_ARCHIVE_DIRNAME);
@@ -26,8 +25,12 @@ function appUrl(): string {
 
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 1100,
-    height: 780,
+    width: 1220,
+    height: 820,
+    minWidth: 820,
+    minHeight: 620,
+    backgroundColor: '#f6fbff',
+    show: false,
     title: 'Kinlore',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -36,6 +39,15 @@ function createWindow(): void {
       sandbox: true,
     },
   });
+  mainWindow = window;
+  window.on('closed', () => {
+    if (mainWindow === window) {
+      mainWindow = undefined;
+    }
+  });
+  window.once('ready-to-show', () => {
+    window.show();
+  });
 
   const allowed = appUrl();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -43,6 +55,9 @@ function createWindow(): void {
     if (!isAppFrameUrl(url, allowed)) {
       event.preventDefault();
     }
+  });
+  window.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
   });
 
   const devServerUrl = process.env['VITE_DEV_SERVER_URL'];
@@ -56,34 +71,63 @@ function createWindow(): void {
 
 app.setName('Kinlore');
 
-void app.whenReady().then(async () => {
-  const archiveSession = new ArchiveSession(
-    path.join(app.getPath('userData'), 'secrets.json'),
-    createSecretProtection(safeStorage),
-  );
-  try {
-    await archiveSession.initializeSecretProtection();
-  } catch {
-    // A locked/unavailable OS key store must not block offline archives. Settings
-    // retries and surfaces the safe protection error; no credential is returned.
-  }
-  archiveSession.allowRoot(defaultArchivePath());
-  registerIpc({ session: archiveSession, appUrl, defaultArchivePath });
-  handleMediaProtocol(archiveSession);
-  electronSession.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
-    callback(permission === 'media');
-  });
-  createWindow();
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  registerMediaScheme();
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+  app.on('second-instance', () => {
+    if (mainWindow === undefined || mainWindow.isDestroyed()) {
+      if (app.isReady()) {
+        createWindow();
+      }
+      return;
+    }
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+    mainWindow.focus();
+  });
+
+  void app.whenReady().then(async () => {
+    const archiveSession = new ArchiveSession(
+      path.join(app.getPath('userData'), 'secrets.json'),
+      createSecretProtection(safeStorage),
+    );
+    try {
+      await archiveSession.initializeSecretProtection();
+    } catch {
+      // A locked/unavailable OS key store must not block offline archives. Settings
+      // retries and surfaces the safe protection error; no credential is returned.
+    }
+    archiveSession.allowRoot(defaultArchivePath());
+    registerIpc({ session: archiveSession, appUrl, defaultArchivePath });
+    handleMediaProtocol(archiveSession);
+    electronSession.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
+      callback(
+        (permission === 'media' || permission === 'clipboard-sanitized-write') &&
+          isAppFrameUrl(contents.getURL(), appUrl()),
+      );
+    });
+    createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      } else if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
     }
   });
-});
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+}
